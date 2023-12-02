@@ -29,7 +29,9 @@ class TestCameraSurveillance(unittest.TestCase):
         self.config = None
         self.config_file = "../config/camera_surveillance.config"
         self.camera_surveillance = CameraSurveillance()
+        self.camera_surveillance.start()
         return super().setUp()
+    
     
     def test_config(self):
         """
@@ -58,13 +60,23 @@ class TestCameraSurveillance(unittest.TestCase):
             date: 01-dec-2023
         """
         print("Testing rtsp url...")
-        
         rtsp_url = self.camera_surveillance.build_rtsp_url()
         self.assertIsNotNone(rtsp_url)
-        self.camera_surveillance.init_capture()
+        #
         self.assertIsNotNone(self.camera_surveillance.cap)
-        self.camera_surveillance.cap.release()
+    def test_retrieve_frame(self):
+        """
+            Testing Frame Retrieval from Camera [test_retrieve_frame]
+        """
+        print("Retrieving Frame")
+        frame = self.camera_surveillance.retrieve_frame()
+        self.assertIsNotNone(frame)
         
+    def tearDown(self) -> None:
+        self.camera_surveillance.cap.release()
+        return super().tearDown()
+
+
 
 if __name__ == '__main__':
     unittest.main()
