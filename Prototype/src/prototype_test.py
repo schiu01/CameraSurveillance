@@ -33,7 +33,7 @@ class TestCameraSurveillance(unittest.TestCase):
         return super().setUp()
     
     
-    def test_config(self):
+    def test_001_config(self):
         """
             Test Purpose: Check if configuration file exists
             date: 01-dec-2023
@@ -42,7 +42,7 @@ class TestCameraSurveillance(unittest.TestCase):
         print("Testing Configuration File exists...")
         config_file_exists = os.path.exists(self.config_file)
         self.assertTrue(config_file_exists)
-    def test_config_values(self):
+    def test_002_config_values(self):
         """
             Test Purpose: import configuration values successfully
             date: 01-dec-2023
@@ -54,7 +54,7 @@ class TestCameraSurveillance(unittest.TestCase):
         self.assertIsNotNone(self.config['rtsp_host_url'])
         self.assertIsNotNone(self.config['rtsp_user'])
         self.assertIsNotNone(self.config['rtsp_password'])                
-    def test_opencv_read(self):
+    def test_003_opencv_read(self):
         """
             Testing OpenCV Reading.
             date: 01-dec-2023
@@ -64,24 +64,52 @@ class TestCameraSurveillance(unittest.TestCase):
         self.assertIsNotNone(rtsp_url)
         #
         self.assertIsNotNone(self.camera_surveillance.cap)
-    def test_retrieve_frame(self):
+    def test_004_retrieve_frame(self):
         """
             Testing Frame Retrieval from Camera [test_retrieve_frame]
         """
-        print("Retrieving Frame")
+        print("Testing Retrieving Frame")
         frame = self.camera_surveillance.retrieve_frame()
         self.assertIsNotNone(frame)
-    def test_augment_frame(self):
+    def test_005_augment_frame(self):
         """
             Testing Frame Retrieval from Camera [test_augment_frame]
         """
-        print("Retrieving Frame and Augmenting Frames")
+        print("Test Retrieving Frame and Augmenting Frames")
         frame = self.camera_surveillance.retrieve_frame()
         resized_frame, small_frame, gray_frame = self.camera_surveillance.augment_frame(frame)
         self.assertIsNotNone(resized_frame)
         self.assertIsNotNone(small_frame)
         self.assertIsNotNone(gray_frame)
-        
+
+    def test_006_BS_fgmask(self):
+        """
+            Testing BS and FG mask [test_006_BS_fgmask]
+        """
+        print("Test Background Subtraction")
+        frame = self.camera_surveillance.retrieve_frame()
+        resized_frame, small_frame, gray_frame = self.camera_surveillance.augment_frame(frame)
+        fg_mask = self.camera_surveillance.background_mask.get_fgmask(gray_frame)
+        self.assertIsNotNone(fg_mask)
+
+    def test_007_show_window(self):
+        """
+            Testing Show window [test_007_show_window]
+
+        """
+        print("Testing Show Window...press esc to quit")
+        frame = self.camera_surveillance.retrieve_frame()
+        resized_frame, small_frame, gray_frame = self.camera_surveillance.augment_frame(frame)
+        fg_mask = self.camera_surveillance.background_mask.get_fgmask(gray_frame)
+        status = False
+        try:
+            self.camera_surveillance.show_window(resized_frame)
+            status = True
+        except Exception as e:
+            status = False
+            print(e)
+        self.assertTrue(status)
+
     def tearDown(self) -> None:
         self.camera_surveillance.cap.release()
         return super().tearDown()

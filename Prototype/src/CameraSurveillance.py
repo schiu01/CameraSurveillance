@@ -4,17 +4,30 @@ import cv2
 class BackgroundSubtraction:
     def __init__(self, bs_type):
         self.prev_frame = None
+        self.prev_init_done = False
         if(bs_type == None):
             self.bs_type = "absdiff"
         else:
             self.bs_type = bs_type
     
     def get_fgmask(self, frame):
-
-        self.update_background(frame)
-        pass
-    def update_background(self, frame):
-        pass
+        if(self.bs_type == "absdiff"):
+            return self.get_fgmask_absdiff(frame)
+        else:
+            return None
+    def get_fgmask_absdiff(self, frame):
+        if(self.prev_init_done == False):
+            self.prev_frame = frame
+            self.prev_init_done = True
+        diff_frame = cv2.absdiff(self.prev_frame, frame)
+        ret, mask_frame = cv2.threshold(diff_frame, 65, 255, cv2.THRESH_BINARY)
+        mask_frame = cv2.dilate(mask_frame, None, iterations=13)
+        self.update_background_absdiff(frame)
+        return mask_frame
+        
+    def update_background_absdiff(self, frame):
+        self.prev_frame = frame
+        
 
 class CameraSurveillance:
     def __init__(self):
@@ -43,6 +56,7 @@ class CameraSurveillance:
             Starts the Camera Surveillance system
         """
         self.init_capture()
+        self.loop_camera_frames()
     def read_config(self):
         fd = open(self.config_file,"r")
         self.config = js.load(fd)
@@ -79,25 +93,32 @@ class CameraSurveillance:
         """
             Image Retrieval from Camera.
         """
-        ret, frame = self.cap.read()
-        if ret:
-            return frame
-        else:
-            return None
+        return self.cap.read()
         
     def loop_camera_frames(self):
         """
             Continuously Capture Frames from Camera.
         """
         while(not self.camera_stop):
-            frame = self.retrieve_frame()
-            if(frame != None):
+            ret, frame = self.retrieve_frame()
+            if(ret):
                 self.process_frame(frame)
 
 
     def process_frame(self, frame):
+        """
+            Subroutine to process frame
+            1. Augment the size of the frame to workable one for BG Subtraction and saving.
+            2. Retrieve foreground mask via BackGround Subtraction Class.
+            3. Retrieve the contours (blobs) from the foreground
+            4. Appply the contours on the resized frame to get only the area of the frame that moved
+            5. Pass into Yolo Model
+        """
+
         resized_frame, small_frame, gray_frame = self.augment_frame(frame)
         fg_mask = self.background_mask.get_fgmask(gray_frame)
+        
+        self.show_window(resized_frame)
         pass
     def augment_frame(self, frame):
         """
@@ -108,6 +129,13 @@ class CameraSurveillance:
         small_frame = cv2.resize(gray_frame, (self.frame_small["width"], self.frame_small["height"]), interpolation=cv2.INTER_AREA)
 
         return resized_frame, small_frame, gray_frame
+    def show_window(self, frame):
+        cv2.imshow("cv2", frame)
+        x  = cv2.waitKey(1)
+        if x == 27:
+            cv2.destroyAllWindows()
+            self.cap.release()
+            self.camera_stop = True
 
 
 
