@@ -16,6 +16,10 @@ class CameraSurveillance:
         self.frame_resized = {"width": 0, "height": 0, "channels": 3}
         self.frame_small = {"width": 0, "height": 0, "channels": 3}
 
+        self.camera_stop = False
+        
+
+        ## Set Previous Frame Value = for Absolute Difference
 
         pass
     def start(self):
@@ -52,5 +56,22 @@ class CameraSurveillance:
 
         self.frame_small["width"] = int(self.frame_size["width"] * self.config["resize_ratio"] * self.config["small_resize_ratio"])
         self.frame_small["height"] = int(self.frame_size["height"] * self.config["resize_ratio"] * self.config["small_resize_ratio"])
+
+    def retrieve_frame(self):
+        ret, frame = self.cap.read()
+        if ret:
+            return frame
+        else:
+            return None
+        
+    def loop_camera_frames(self):
+        while(not self.camera_stop):
+            frame = self.retrieve_frame()
+            if(frame != None):
+                self.process_frame(frame)
+
+    def process_frame(self, frame):
+        pass
+
 
 
