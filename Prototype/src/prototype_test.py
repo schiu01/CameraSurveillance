@@ -71,6 +71,16 @@ class TestCameraSurveillance(unittest.TestCase):
         print("Retrieving Frame")
         frame = self.camera_surveillance.retrieve_frame()
         self.assertIsNotNone(frame)
+    def test_augment_frame(self):
+        """
+            Testing Frame Retrieval from Camera [test_augment_frame]
+        """
+        print("Retrieving Frame and Augmenting Frames")
+        frame = self.camera_surveillance.retrieve_frame()
+        resized_frame, small_frame, gray_frame = self.camera_surveillance.augment_frame(frame)
+        self.assertIsNotNone(resized_frame)
+        self.assertIsNotNone(small_frame)
+        self.assertIsNotNone(gray_frame)
         
     def tearDown(self) -> None:
         self.camera_surveillance.cap.release()
