@@ -16,14 +16,14 @@ class BackgroundSubtraction:
         else:
             return None
     def get_fgmask_absdiff(self, frame):
+        resized_frame = cv2.resize(frame, (320, 180), interpolation=cv2.INTER_AREA)
         if(self.prev_init_done == False):
-            self.prev_frame = frame
+            self.prev_frame = resized_frame
             self.prev_init_done = True
-        diff_frame = cv2.absdiff(self.prev_frame, frame)
-        ret, mask_frame = cv2.threshold(diff_frame, 65, 255, cv2.THRESH_BINARY)
-        mask_frame = cv2.dilate(mask_frame, None, iterations=13)
-        self.update_background_absdiff(frame)
-        return mask_frame
+        
+        diff_frame = cv2.absdiff(self.prev_frame, resized_frame)
+        self.update_background_absdiff(resized_frame)
+        return diff_frame
         
     def update_background_absdiff(self, frame):
         self.prev_frame = frame
@@ -119,6 +119,7 @@ class CameraSurveillance:
         fg_mask = self.background_mask.get_fgmask(gray_frame)
         
         self.show_window(resized_frame)
+        self.show_window(fg_mask, "maskframe")
         pass
     def augment_frame(self, frame):
         """
@@ -129,8 +130,8 @@ class CameraSurveillance:
         small_frame = cv2.resize(gray_frame, (self.frame_small["width"], self.frame_small["height"]), interpolation=cv2.INTER_AREA)
 
         return resized_frame, small_frame, gray_frame
-    def show_window(self, frame):
-        cv2.imshow("cv2", frame)
+    def show_window(self, frame, windowname="cv2"):
+        cv2.imshow(windowname, frame)
         x  = cv2.waitKey(1)
         if x == 27:
             cv2.destroyAllWindows()
