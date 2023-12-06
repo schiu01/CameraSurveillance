@@ -1,10 +1,16 @@
 import json as js
 import base64
 import cv2
+import numpy as np
 class BackgroundSubtraction:
     def __init__(self, bs_type):
         self.prev_frame = None
         self.prev_init_done = False
+        self.pixels_changed_pct = 0
+
+
+
+
         if(bs_type == None):
             self.bs_type = "absdiff"
         else:
@@ -16,15 +22,40 @@ class BackgroundSubtraction:
         else:
             return None
     def get_fgmask_absdiff(self, frame):
+        """
+            Iteration 1: The framesize was large at 1280 x 720 pixels, reduced to 320 x 180 pixels for more efficiency
+            Iteration 2: Added thresholding of pixel values, all pixesl > X are converted to white pixes, others are black.
+            first setting of x = 65, some pixels that should be positive are not captured, we will set it to 50.
+
+            Issues and Resolutions added to iterations.:
+            1. Sudden changes in lighting environment causing most pixels to change - to remediate this, we will set a threshold on % of pixels changed. 
+            if it is over 50% changed, we know it may be attributed to the environment
+            so we skip that frame and present the previous frame.
+            2. on a breezy day, the tree wavers and causing pixels to change - we will add some gaussian blur so the difference betwen pixels of those small changes are not significant.
+            3. Pixelated foreground mask - we will dilate the pixels so the blobs come together as larger blob (contours).
+            Iteration 3: Use the lower screen on the window to display some stats and add the foreground mask in that area instead of another window.
+            Iteration 4: Background update is changed to store x # of frames of history and an average is taken over those frames as background to be subtracted
+        
+        """
         resized_frame = cv2.resize(frame, (320, 180), interpolation=cv2.INTER_AREA)
         if(self.prev_init_done == False):
             self.prev_frame = resized_frame
             self.prev_init_done = True
         
         diff_frame = cv2.absdiff(self.prev_frame, resized_frame)
-        self.update_background_absdiff(resized_frame)
+
+
+        ret, diff_frame = cv2.threshold(diff_frame, 30, 255, cv2.THRESH_BINARY)
+        if(ret):
+            self.update_background_absdiff(resized_frame)
+            ## Keep count on # pixels changed
+            self.pixels_changed_pct = int(100 * np.count_nonzero(diff_frame) / (diff_frame.shape[0] * diff_frame.shape[1]))
+
+        
         return diff_frame
         
+
+
     def update_background_absdiff(self, frame):
         self.prev_frame = frame
         
@@ -117,9 +148,14 @@ class CameraSurveillance:
 
         resized_frame, small_frame, gray_frame = self.augment_frame(frame)
         fg_mask = self.background_mask.get_fgmask(gray_frame)
-        
+        #print(f"% Pixel Change: {self.background_mask.pixels_changed_pct}%")
+
+        ## Use an area at bottom of window to show fgmask and frame stats
+        resized_frame[0:self.frame_resized["height"], self.frame_resized["width"]-fg_mask.shape[1]:self.frame_resized["width"]] = cv2.cvtColor(fg_mask,cv2.COLOR_GRAY2BGR)
+
+
         self.show_window(resized_frame)
-        self.show_window(fg_mask, "maskframe")
+        
         pass
     def augment_frame(self, frame):
         """
