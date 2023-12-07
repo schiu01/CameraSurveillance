@@ -2,11 +2,17 @@ import json as js
 import base64
 import cv2
 import numpy as np
+from datetime import datetime
 class BackgroundSubtraction:
     def __init__(self, bs_type):
         self.prev_frame = None
         self.prev_init_done = False
         self.pixels_changed_pct = 0
+        self.pixels_changed = 0
+
+        self.prev_history_frames = []
+        self.total_history_frames = 5
+        self.prev_history_index = 0 ## Pointer on where the current history is, for update and retrieval.
 
 
 
@@ -16,11 +22,21 @@ class BackgroundSubtraction:
         else:
             self.bs_type = bs_type
     
+
+
     def get_fgmask(self, frame):
         if(self.bs_type == "absdiff"):
             return self.get_fgmask_absdiff(frame)
         else:
             return None
+    def get_history_indexes(self):
+        idx = []
+        for x in range(self.prev_history_index, self.total_history_frames):
+            idx.append(x)
+        for x in range(0,self.prev_history_index):
+            idx.append(x)
+        return idx
+    
     def get_fgmask_absdiff(self, frame):
         """
             Iteration 1: The framesize was large at 1280 x 720 pixels, reduced to 320 x 180 pixels for more efficiency
@@ -39,17 +55,30 @@ class BackgroundSubtraction:
         """
         resized_frame = cv2.resize(frame, (320, 180), interpolation=cv2.INTER_AREA)
         if(self.prev_init_done == False):
+            for x in range(0, self.total_history_frames):
+                self.prev_history_frames.append(resized_frame)
             self.prev_frame = resized_frame
+            self.prev_history_index = 0
             self.prev_init_done = True
-        
-        diff_frame = cv2.absdiff(self.prev_frame, resized_frame)
+        diff_frames = []
+        for frame_idx in self.get_history_indexes():
+            df = cv2.absdiff(self.prev_history_frames[frame_idx], resized_frame)
+            diff_frames.append(df)
+
+        diff_frame = np.maximum(diff_frames[0], diff_frames[1])
+        for idx in range(2,self.total_history_frames):
+            diff_frame = np.maximum(diff_frame, diff_frames[idx])
+            
 
 
-        ret, diff_frame = cv2.threshold(diff_frame, 30, 255, cv2.THRESH_BINARY)
+        ret, diff_frame = cv2.threshold(diff_frame, 50, 255, cv2.THRESH_BINARY)
         if(ret):
             self.update_background_absdiff(resized_frame)
             ## Keep count on # pixels changed
-            self.pixels_changed_pct = int(100 * np.count_nonzero(diff_frame) / (diff_frame.shape[0] * diff_frame.shape[1]))
+            self.pixels_changed = np.count_nonzero(diff_frame)
+            self.pixels_changed_pct = int(100 * self.pixels_changed / np.size(diff_frame))
+            
+
 
         
         return diff_frame
@@ -58,6 +87,9 @@ class BackgroundSubtraction:
 
     def update_background_absdiff(self, frame):
         self.prev_frame = frame
+        self.prev_history_frames[self.prev_history_index] = frame
+        self.prev_history_index = (self.prev_history_index + 1) % self.total_history_frames
+
         
 
 class CameraSurveillance:
@@ -80,6 +112,10 @@ class CameraSurveillance:
         self.background_mask = BackgroundSubtraction(bs_type=self.config["background_subtraction_method"])
         
         ## Set Previous Frame Value = for Absolute Difference
+        self.datetime = datetime.now().strftime("%Y%m%d")
+        self.output_file = f"raw_capture_{self.datetime}.mp4"
+
+
 
         pass
     def start(self):
@@ -119,6 +155,8 @@ class CameraSurveillance:
 
         self.frame_small["width"] = self.config["small_frame_w"]
         self.frame_small["height"] = self.config["small_frame_h"]
+        four_cc = cv2.VideoWriter_fourcc(*'mp4v')
+        self.record_out = cv2.VideoWriter(self.output_file, four_cc, 17.0, (self.frame_size["width"],self.frame_size["height"]))
 
     def retrieve_frame(self):
         """
@@ -151,11 +189,33 @@ class CameraSurveillance:
         #print(f"% Pixel Change: {self.background_mask.pixels_changed_pct}%")
 
         ## Use an area at bottom of window to show fgmask and frame stats
-        resized_frame[0:self.frame_resized["height"], self.frame_resized["width"]-fg_mask.shape[1]:self.frame_resized["width"]] = cv2.cvtColor(fg_mask,cv2.COLOR_GRAY2BGR)
+        resized_frame[self.frame_resized["height"]-fg_mask.shape[0]:self.frame_resized["height"], 0:fg_mask.shape[1]] = cv2.cvtColor(fg_mask,cv2.COLOR_GRAY2BGR)
+        cv2.putText(resized_frame,"FG Mask",[0,self.frame_resized["height"]-fg_mask.shape[0]],cv2.FONT_HERSHEY_COMPLEX,0.7,(0,255,0),1)
 
+        ## Add black box and add text for stats
+        cv2.rectangle(resized_frame, (fg_mask.shape[1]+2,self.frame_resized["height"]-fg_mask.shape[0]),(2*fg_mask.shape[1],self.frame_resized["height"]), (0,0,0),-1)
 
+        ## Pixels Changed
+        cv2.putText(resized_frame,f"BS Type: {self.background_mask.bs_type}",
+                    [fg_mask.shape[1]+3,self.frame_resized["height"]-fg_mask.shape[0]+15],
+                    cv2.FONT_HERSHEY_COMPLEX_SMALL,0.8,(0,0,255),
+                    1)
+
+        cv2.putText(resized_frame,f"Pixels Changed %: {self.background_mask.pixels_changed_pct} %",
+                    [fg_mask.shape[1]+3,self.frame_resized["height"]-fg_mask.shape[0]+30],
+                    cv2.FONT_HERSHEY_COMPLEX_SMALL,0.8,(0,255,255),
+                    1)
+        cv2.putText(resized_frame,f"Pixels Changed : {self.background_mask.pixels_changed}",
+                    [fg_mask.shape[1]+3,self.frame_resized["height"]-fg_mask.shape[0]+45],
+                    cv2.FONT_HERSHEY_COMPLEX_SMALL,0.8,(0,255,255),
+                    1)
+        cv2.putText(resized_frame,f"Total Pixels : 57.6k",
+                    [fg_mask.shape[1]+3,self.frame_resized["height"]-fg_mask.shape[0]+60],
+                    cv2.FONT_HERSHEY_COMPLEX_SMALL,0.8,(0,255,255),
+                    1)
         self.show_window(resized_frame)
         
+        self.record_out.write(frame)
         pass
     def augment_frame(self, frame):
         """
@@ -173,6 +233,7 @@ class CameraSurveillance:
             cv2.destroyAllWindows()
             self.cap.release()
             self.camera_stop = True
+            self.record_out.release()
 
 
 
