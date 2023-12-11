@@ -245,18 +245,32 @@ class CameraSurveillance:
         ## After get fgmask, we need to identify all the blobs on the screen.
         ### We will use opencv's contours
         contours, hierarchy = cv2.findContours(fg_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        fgmask_new = np.zeros(( self.frame_resized["height"],self.frame_resized["width"]), dtype="uint8")
+        total_blobs = 0
         for i, ctr in enumerate(contours):
             ctr_area = cv2.contourArea(ctr)
             if(ctr_area > 100):
+                total_blobs += 1
                 if(hierarchy[0][i][3] == -1):
-                    (cx, cy, cw, ch) = cv2.boundingRect(ctr)
-                    cx = int(cx * self.fgmask_ratio)
-                    cy = int(cy * self.fgmask_ratio)
-                    cw = int(cw * self.fgmask_ratio)
-                    ch = int(ch * self.fgmask_ratio)
-                    cv2.rectangle(resized_frame, (cx, cy), (cx+cw, cy+ch), (0,0,255), 2 )
+                    ctr_resized = np.multiply(ctr, self.fgmask_ratio).astype(int)
+                    (cx, cy, cw, ch) = cv2.boundingRect(ctr_resized)
+                    cv2.rectangle(fgmask_new, (cx, cy), (cx+cw, cy+ch), (1,1), -1 )
+                    ## Get the Regions of Interests
+                    ## Apppy bitwise and with fgmask, and retrieve the ROIs.
+        if(total_blobs > 0):
+            resized_frame = cv2.bitwise_and(resized_frame,resized_frame, mask=fgmask_new)
+
+            
+
+                    
 
                 
+        #contours, hierarchy = cv2.findContours(fg_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        # for i, ctr in enumerate(contours):
+        #     ctr_area = cv2.contourArea(ctr)
+        #     if(ctr_area > 100):
+        #         ctr_resized = np.multiply(ctr, self.fgmask_ratio).astype(int)
+        #         cv2.polylines(resized_frame,ctr_resized, True, (0,0,255), 2 )
 
 
 
