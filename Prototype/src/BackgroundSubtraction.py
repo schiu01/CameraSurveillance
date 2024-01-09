@@ -26,7 +26,7 @@ class BackgroundSubtraction:
 
         ## Mixture of Gradients BS.
         if(self.bs_type == "mog2"):
-            self.backsub = cv2.createBackgroundSubtractorMOG2(history=100)
+            self.backsub = cv2.createBackgroundSubtractorMOG2(history=60)
 
         
         ## Vibe
@@ -80,8 +80,9 @@ class BackgroundSubtraction:
         #resized_frame = cv2.resize(frame, (self.fgmask_width, self.fgmask_height), interpolation=cv2.INTER_AREA)
         resized_frame = cv2.GaussianBlur(frame,(3,3),0) 
         orig_fgmask = self.backsub.apply(resized_frame)
-        ret, fgmask = cv2.threshold(orig_fgmask, 200, 255, cv2.THRESH_BINARY)
-        fgmask = cv2.dilate(fgmask,None,iterations=2)
+        fgmask = cv2.dilate(orig_fgmask,None,iterations=2)
+        ret, fgmask = cv2.threshold(fgmask, 180, 255, cv2.THRESH_BINARY)
+        
         return orig_fgmask, fgmask
 
     def get_fgmask_absdiff(self, frame):

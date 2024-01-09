@@ -4,6 +4,7 @@ import cv2
 import numpy as np
 from datetime import datetime
 from BackgroundSubtraction import BackgroundSubtraction
+from time import sleep
 
       
 
@@ -22,7 +23,7 @@ class CameraSurveillance:
         self.frame_size = {"width": 0, "height": 0, "channels": 3}
         self.frame_resized = {"width": 0, "height": 0, "channels": 3}
         self.frame_small = {"width": 0, "height": 0, "channels": 3}
-
+        self.resize_ratio = int(self.frame_size["width"] / self.frame_resized["width"])
         ## Stop the camera loop
         self.camera_stop = False
         
@@ -35,6 +36,7 @@ class CameraSurveillance:
         ## Date time for filename saved as.
         self.datetime = datetime.now().strftime("%Y%m%d")
         self.output_file = f"raw_capture_{self.datetime}.mp4"
+
 
     def start(self):
         """
@@ -112,6 +114,7 @@ class CameraSurveillance:
                 if(frame.size == 0):
                     break
                 self.process_frame(frame)
+                #sleep(0.2)
 
 
     def process_frame(self, frame):
@@ -175,13 +178,13 @@ class CameraSurveillance:
         cv2.rectangle(resized_frame, (3*fg_mask.shape[1]+3,self.frame_resized["height"]-fg_mask.shape[0]),(4*fg_mask.shape[1]+4,self.frame_resized["height"]), (20,20,20),-1)
         
         # Yolo Input
-        #roi_frame_resized = cv2.resize(roi_frame,(320,180), interpolation=cv2.INTER_AREA)
-        # resized_frame[self.frame_resized["height"]-roi_frame_resized.shape[0]:self.frame_resized["height"], 
-        #               2*fg_mask.shape[1]+2:2*fg_mask.shape[1] + roi_frame_resized.shape[1]+2] = roi_frame_resized
+        roi_frame_resized = cv2.resize(roi_frame,(320,180), interpolation=cv2.INTER_AREA)
+        resized_frame[self.frame_resized["height"]-roi_frame_resized.shape[0]:self.frame_resized["height"], 
+                      2*fg_mask.shape[1]+2:2*fg_mask.shape[1] + roi_frame_resized.shape[1]+2] = roi_frame_resized
 
         cv2.putText(resized_frame,"Original FG Mask",[0,self.frame_resized["height"]-fg_mask.shape[0]-2],cv2.FONT_HERSHEY_COMPLEX,0.7,(0,255,0),1)
         cv2.putText(resized_frame,"Augmented FG Mask",[321,self.frame_resized["height"]-fg_mask.shape[0]-2],cv2.FONT_HERSHEY_COMPLEX,0.7,(0,255,0),1)
-        #cv2.putText(resized_frame,"Yolo Model Input",[(321*2),self.frame_resized["height"]-fg_mask.shape[0]-2],cv2.FONT_HERSHEY_COMPLEX,0.7,(0,255,0),1)
+        cv2.putText(resized_frame,"Yolo Model Input",[(321*2),self.frame_resized["height"]-fg_mask.shape[0]-2],cv2.FONT_HERSHEY_COMPLEX,0.7,(0,255,0),1)
         cv2.putText(resized_frame,"Info",[(321*3),self.frame_resized["height"]-fg_mask.shape[0]-2],cv2.FONT_HERSHEY_COMPLEX,0.7,(0,255,0),1)
 
 
