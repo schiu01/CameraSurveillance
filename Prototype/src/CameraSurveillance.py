@@ -6,6 +6,7 @@ from datetime import datetime
 from BackgroundSubtraction import BackgroundSubtraction
 from time import sleep
 from ObjectDection import ObjectDetection
+from ObjectTracker import ObjectTracker
 
       
 
@@ -41,6 +42,10 @@ class CameraSurveillance:
 
         ## Yolo Object
         self.obj_detection = ObjectDetection()
+
+        # Object Tracker
+        show_centroid_trail = self.config["object_tracker_centroid_trail"]
+        self.obj_tracker = ObjectTracker(show_centroid_trail)
 
         # Version Info
         self.version_info = self.config["version_info"]
@@ -158,17 +163,24 @@ class CameraSurveillance:
                     (cx, cy, cw, ch) = cv2.boundingRect(ctr_resized)
                     cv2.rectangle(fgmask_new, (cx, cy), (cx+cw, cy+ch), (1,1), -1 )
                     #cv2.rectangle(resized_frame, (cx, cy), (cx+cw, cy+ch), (0,255,0), 2 )
+                    print(f"CTR Area: {ctr_area} | height: {h}")
+                    cv2.imwrite("images/detected.jpg", self.frame_resized)
                     ## Get the Regions of Interests
                     ## Apppy bitwise and with fgmask, and retrieve the ROIs.
         if(total_blobs > 0):
             roi_frame = cv2.bitwise_and(resized_frame,resized_frame, mask=fgmask_new)
 
             obj_detection_results = self.obj_detection.detect(roi_frame)
-            resized_frame, total_objects = self.obj_detection.boundBox(inp_frame=resized_frame,
+            resized_frame, total_objects, detected_objects = self.obj_detection.boundBox(inp_frame=resized_frame,
                                                            results=obj_detection_results,
                                                            img_ratio=1,
                                                            confidence_level=0.6)
-
+            # Send detected objects to tracker.
+            resized_frame, new_objects_count = self.obj_tracker.track(resized_frame, detected_objects, total_objects)
+            if(new_objects_count > 0): ## Notify if new objects found.
+                pass
+        else:
+            self.obj_tracker.clear_tracker()
                     
 
                 
@@ -196,14 +208,14 @@ class CameraSurveillance:
         resized_frame[self.frame_resized["height"]-roi_frame_resized.shape[0]:self.frame_resized["height"], 
                       2*fg_mask.shape[1]+2:2*fg_mask.shape[1] + roi_frame_resized.shape[1]+2] = roi_frame_resized
 
-        cv2.putText(resized_frame,"Original FG Mask",[0,self.frame_resized["height"]-fg_mask.shape[0]-2],cv2.FONT_HERSHEY_COMPLEX,0.7,(0,255,0),1)
-        cv2.putText(resized_frame,"Augmented FG Mask",[321,self.frame_resized["height"]-fg_mask.shape[0]-2],cv2.FONT_HERSHEY_COMPLEX,0.7,(0,255,0),1)
-        cv2.putText(resized_frame,"Yolo Model Input",[(321*2),self.frame_resized["height"]-fg_mask.shape[0]-2],cv2.FONT_HERSHEY_COMPLEX,0.7,(0,255,0),1)
-        cv2.putText(resized_frame,"Info",[(321*3),self.frame_resized["height"]-fg_mask.shape[0]-2],cv2.FONT_HERSHEY_COMPLEX,0.7,(0,255,0),1)
+        cv2.putText(resized_frame,"Original FG Mask",[0,self.frame_resized["height"]-fg_mask.shape[0]-2],cv2.FONT_HERSHEY_DUPLEX,0.7,(0,255,0),1)
+        cv2.putText(resized_frame,"Augmented FG Mask",[321,self.frame_resized["height"]-fg_mask.shape[0]-2],cv2.FONT_HERSHEY_DUPLEX,0.7,(0,255,0),1)
+        cv2.putText(resized_frame,"Yolo Model Input",[(321*2),self.frame_resized["height"]-fg_mask.shape[0]-2],cv2.FONT_HERSHEY_DUPLEX,0.7,(0,255,0),1)
+        cv2.putText(resized_frame,"Info",[(321*3),self.frame_resized["height"]-fg_mask.shape[0]-2],cv2.FONT_HERSHEY_DUPLEX,0.7,(0,255,0),1)
 
         ## For debug version info
         cv2.rectangle(resized_frame, (300,0,800,30) , (20,20,20),-1)
-        cv2.putText(resized_frame,self.version_info,(310,20), cv2.FONT_HERSHEY_COMPLEX,0.7,(0,0,255),1)
+        cv2.putText(resized_frame,self.version_info,(310,20), cv2.FONT_HERSHEY_DUPLEX,0.7,(0,0,255),1)
 
 
         ## Pixels Changed
@@ -211,29 +223,29 @@ class CameraSurveillance:
         text_pos_x = 3*fg_mask.shape[1] + 4
         cv2.putText(resized_frame,f"Video Source: {self.config.get('source')}",
             [text_pos_x,self.frame_resized["height"]-fg_mask.shape[0]+15],
-            cv2.FONT_HERSHEY_COMPLEX_SMALL,0.8,(0,0,255),
+            cv2.FONT_HERSHEY_DUPLEX,0.5,(0,0,255),
             1)
 
         cv2.putText(resized_frame,f"BS Type: {self.background_mask.bs_type}",
                     [text_pos_x,self.frame_resized["height"]-fg_mask.shape[0]+30],
-                    cv2.FONT_HERSHEY_COMPLEX_SMALL,0.8,(0,0,255),
+                    cv2.FONT_HERSHEY_DUPLEX,0.5,(0,0,255),
                     1)
 
         cv2.putText(resized_frame,f"Pixels Changed %: {self.background_mask.pixels_changed_pct} %",
                     [text_pos_x,self.frame_resized["height"]-fg_mask.shape[0]+45],
-                    cv2.FONT_HERSHEY_COMPLEX_SMALL,0.8,(0,255,255),
+                    cv2.FONT_HERSHEY_DUPLEX,0.5,(0,255,255),
                     1)
         cv2.putText(resized_frame,f"Pixels Changed : {self.background_mask.pixels_changed}",
                     [text_pos_x,self.frame_resized["height"]-fg_mask.shape[0]+60],
-                    cv2.FONT_HERSHEY_COMPLEX_SMALL,0.8,(0,255,255),
+                    cv2.FONT_HERSHEY_DUPLEX,0.5,(0,255,255),
                     1)
         cv2.putText(resized_frame,f"Total Pixels : 57.6k",
                     [text_pos_x,self.frame_resized["height"]-fg_mask.shape[0]+75],
-                    cv2.FONT_HERSHEY_COMPLEX_SMALL,0.8,(0,255,255),
+                    cv2.FONT_HERSHEY_DUPLEX,0.5,(0,255,255),
                     1)
         cv2.putText(resized_frame,f"Detected Objects #(Yolo): " + str(total_objects),
                     [text_pos_x,self.frame_resized["height"]-fg_mask.shape[0]+90],
-                    cv2.FONT_HERSHEY_COMPLEX_SMALL,0.8,(0,255,255),
+                    cv2.FONT_HERSHEY_DUPLEX,0.5,(0,255,255),
                     1)        
         self.show_window(resized_frame)
         
