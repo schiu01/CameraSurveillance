@@ -5,6 +5,7 @@ import numpy as np
 from datetime import datetime
 from BackgroundSubtraction import BackgroundSubtraction
 from time import sleep
+from ObjectDection import ObjectDetection
 
       
 
@@ -23,7 +24,8 @@ class CameraSurveillance:
         self.frame_size = {"width": 0, "height": 0, "channels": 3}
         self.frame_resized = {"width": 0, "height": 0, "channels": 3}
         self.frame_small = {"width": 0, "height": 0, "channels": 3}
-        self.resize_ratio = int(self.frame_size["width"] / self.frame_resized["width"])
+        
+        
         ## Stop the camera loop
         self.camera_stop = False
         
@@ -37,6 +39,12 @@ class CameraSurveillance:
         self.datetime = datetime.now().strftime("%Y%m%d")
         self.output_file = f"raw_capture_{self.datetime}.mp4"
 
+        ## Yolo Object
+        self.obj_detection = ObjectDetection()
+
+        # Version Info
+        self.version_info = self.config["version_info"]
+        
 
     def start(self):
         """
@@ -93,7 +101,7 @@ class CameraSurveillance:
 
         if(self.save_video):
             four_cc = cv2.VideoWriter_fourcc(*'mp4v')
-            self.record_out = cv2.VideoWriter(self.output_file, four_cc, 15.0, (self.frame_size["width"],self.frame_size["height"]))
+            self.record_out = cv2.VideoWriter(self.output_file, four_cc, 15.0, (self.frame_resized["width"],self.frame_resized["height"]))
             
         else:
             self.record_out = None
@@ -138,9 +146,11 @@ class CameraSurveillance:
         fgmask_new = np.zeros(( self.frame_resized["height"],self.frame_resized["width"]), dtype="uint8")
         roi_frame = np.zeros(( self.frame_resized["height"],self.frame_resized["width"],3), dtype="uint8")
         total_blobs = 0
+        total_objects = 0
         for i, ctr in enumerate(contours):
             ctr_area = cv2.contourArea(ctr)
-            if(ctr_area > 100):
+            (x,y,w,h) = cv2.boundingRect(ctr)
+            if(ctr_area > 250 or h > 50):
                 
                 if(hierarchy[0][i][3] == -1):
                     total_blobs += 1
@@ -153,7 +163,11 @@ class CameraSurveillance:
         if(total_blobs > 0):
             roi_frame = cv2.bitwise_and(resized_frame,resized_frame, mask=fgmask_new)
 
-            
+            obj_detection_results = self.obj_detection.detect(roi_frame)
+            resized_frame, total_objects = self.obj_detection.boundBox(inp_frame=resized_frame,
+                                                           results=obj_detection_results,
+                                                           img_ratio=1,
+                                                           confidence_level=0.6)
 
                     
 
@@ -187,6 +201,10 @@ class CameraSurveillance:
         cv2.putText(resized_frame,"Yolo Model Input",[(321*2),self.frame_resized["height"]-fg_mask.shape[0]-2],cv2.FONT_HERSHEY_COMPLEX,0.7,(0,255,0),1)
         cv2.putText(resized_frame,"Info",[(321*3),self.frame_resized["height"]-fg_mask.shape[0]-2],cv2.FONT_HERSHEY_COMPLEX,0.7,(0,255,0),1)
 
+        ## For debug version info
+        cv2.rectangle(resized_frame, (300,0,800,30) , (20,20,20),-1)
+        cv2.putText(resized_frame,self.version_info,(310,20), cv2.FONT_HERSHEY_COMPLEX,0.7,(0,0,255),1)
+
 
         ## Pixels Changed
         
@@ -213,10 +231,14 @@ class CameraSurveillance:
                     [text_pos_x,self.frame_resized["height"]-fg_mask.shape[0]+75],
                     cv2.FONT_HERSHEY_COMPLEX_SMALL,0.8,(0,255,255),
                     1)
+        cv2.putText(resized_frame,f"Detected Objects #(Yolo): " + str(total_objects),
+                    [text_pos_x,self.frame_resized["height"]-fg_mask.shape[0]+90],
+                    cv2.FONT_HERSHEY_COMPLEX_SMALL,0.8,(0,255,255),
+                    1)        
         self.show_window(resized_frame)
         
         if self.save_video:
-            self.record_out.write(frame)
+            self.record_out.write(resized_frame)
         pass
     def augment_frame(self, frame):
         """
