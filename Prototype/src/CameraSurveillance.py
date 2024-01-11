@@ -45,7 +45,8 @@ class CameraSurveillance:
 
         # Object Tracker
         show_centroid_trail = self.config["object_tracker_centroid_trail"]
-        self.obj_tracker = ObjectTracker(show_centroid_trail)
+        centroid_max_distance = self.config["centroid_max_distance"]
+        self.obj_tracker = ObjectTracker(centroid_max_distance, show_centroid_trail)
 
         # Version Info
         self.version_info = self.config["version_info"]
@@ -163,7 +164,7 @@ class CameraSurveillance:
                     (cx, cy, cw, ch) = cv2.boundingRect(ctr_resized)
                     cv2.rectangle(fgmask_new, (cx, cy), (cx+cw, cy+ch), (1,1), -1 )
                     #cv2.rectangle(resized_frame, (cx, cy), (cx+cw, cy+ch), (0,255,0), 2 )
-                    print(f"CTR Area: {ctr_area} | height: {h}")
+                    #print(f"CTR Area: {ctr_area} | height: {h}")
                     cv2.imwrite("images/detected.jpg", self.frame_resized)
                     ## Get the Regions of Interests
                     ## Apppy bitwise and with fgmask, and retrieve the ROIs.
@@ -180,6 +181,7 @@ class CameraSurveillance:
             if(new_objects_count > 0): ## Notify if new objects found.
                 pass
         else:
+            
             self.obj_tracker.clear_tracker()
                     
 
