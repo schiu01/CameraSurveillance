@@ -118,7 +118,7 @@ class ObjectTracker:
                         self.total_tracked_objects -= 1
                         del self.tracked_counter[last_tracked_centroid_index]
                         del self.object_direction[last_tracked_centroid_index]                         
-        print(f"Total Objects in tracker: {self.total_tracked_objects} ")
+#        print(f"Total Objects in tracker: {self.total_tracked_objects} ")
 
 
 

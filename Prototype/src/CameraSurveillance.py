@@ -8,7 +8,12 @@ from time import sleep
 from ObjectDection import ObjectDetection
 from ObjectTracker import ObjectTracker
 
-      
+from collections import deque
+from threading import Thread
+from multiprocessing.pool import Pool
+from queue import Queue
+from multiprocessing import freeze_support
+
 
 class CameraSurveillance:
     def __init__(self):
@@ -50,14 +55,23 @@ class CameraSurveillance:
 
         # Version Info
         self.version_info = self.config["version_info"]
+        num_cpu = cv2.getNumberOfCPUs()
+        self.pool = Pool(processes=num_cpu)
         
-
+        self.image_queue = Queue()
+        freeze_support()
     def start(self):
         """
             Starts the Camera Surveillance system
         """
         self.init_capture()
-        self.loop_camera_frames()
+        th1 = Thread(name="read_thread", target=self.loop_camera_frames)
+        th1.start()
+        th2 = Thread(name="save_frame", target=self.save_video_frames)
+        th2.start()
+        th1.join()
+        th2.join()
+        #self.loop_camera_frames()
 
     def read_config(self):
         fd = open(self.config_file,"r")
@@ -118,19 +132,44 @@ class CameraSurveillance:
         """
         return self.cap.read()
         
+    def queue_frame(self, frame):
+        self.image_queue.put_nowait(frame)
+    def save_video_frames(self):
+        if(self.save_video):
+            while(not self.camera_stop or self.image_queue.qsize() > 0):
+                if(self.image_queue.qsize() == 0):
+                    sleep(0.1)
+                frame = None
+                try:
+                    frame = self.image_queue.get_nowait()
+                except Exception as e:
+                    pass
+                if(isinstance(frame, np.ndarray)):
+                    print("Recording...")    
+                    self.record_out.write(frame)
     def loop_camera_frames(self):
         """
             Continuously Capture Frames from Camera.
+            
         """
+
         while(not self.camera_stop):
+        # Consume the queue.
+
             ret, frame = self.retrieve_frame()
+
             if(ret):
                 if(frame.size == 0):
                     break
-                self.process_frame(frame)
-                #sleep(0.2)
+                pframe = self.process_frame(frame)
+                self.show_window(pframe)
+                if(self.save_video):
+                    self.queue_frame(pframe)
 
+                
+                
 
+        self.pool.close()
     def process_frame(self, frame):
         """
             Subroutine to process frame
@@ -249,11 +288,11 @@ class CameraSurveillance:
                     [text_pos_x,self.frame_resized["height"]-fg_mask.shape[0]+90],
                     cv2.FONT_HERSHEY_DUPLEX,0.5,(0,255,255),
                     1)        
-        self.show_window(resized_frame)
+        #self.show_window(resized_frame)
         
-        if self.save_video:
-            self.record_out.write(resized_frame)
-        pass
+        # if self.save_video:
+        #     self.record_out.write(resized_frame)
+        return resized_frame
     def augment_frame(self, frame):
         """
             Augment Frame is to resize frame to display frame (smaller than original) 
