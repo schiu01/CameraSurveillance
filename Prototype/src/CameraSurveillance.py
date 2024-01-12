@@ -7,12 +7,10 @@ from BackgroundSubtraction import BackgroundSubtraction
 from time import sleep
 from ObjectDection import ObjectDetection
 from ObjectTracker import ObjectTracker
-
-from collections import deque
 from threading import Thread
 from multiprocessing.pool import Pool
 from queue import Queue
-from multiprocessing import freeze_support
+import subprocess as sp
 
 
 class CameraSurveillance:
@@ -38,8 +36,14 @@ class CameraSurveillance:
         ## custom background mask class. input is background masking type = mog2 or absdiff
         self.background_mask = BackgroundSubtraction(bs_type=self.config["background_subtraction_method"])
         
-        ## Set Previous Frame Value = for Absolute Difference
-        self.save_video = self.config.get("save_video")
+        ## Save Video when detection is alerted.
+        self.save_video = self.config.get("save_video_on_alert")
+        self.object_detected_start = False
+        self.object_detected_starttime = None
+        self.object_detected_endtime = None
+
+        ## Record 3 more seconds AFTER object is no longer detected; so if another object comes to scene it continues recording.
+        self.record_extra_frame_count = 0 
 
         ## Date time for filename saved as.
         self.datetime = datetime.now().strftime("%Y%m%d")
@@ -55,11 +59,23 @@ class CameraSurveillance:
 
         # Version Info
         self.version_info = self.config["version_info"]
+
+        ## Multi processing for smoother experience and handling of saving of videos in a separate cpu
         num_cpu = cv2.getNumberOfCPUs()
         self.pool = Pool(processes=num_cpu)
         
+        ## queue created for multiprocessing. 
+        ## where read from frames and post-processing frame is added to queue
+        ## and another cpu to read from frames and save video if required.
+        ## the save video also triggers notification
         self.image_queue = Queue()
-        freeze_support()
+        
+
+        ## Notification Flag
+        self.notify_users = False
+
+
+        
     def start(self):
         """
             Starts the Camera Surveillance system
@@ -119,12 +135,17 @@ class CameraSurveillance:
         self.fgmask_ratio = self.frame_resized["width"] / self.frame_small["width"] 
         
 
-        if(self.save_video):
-            four_cc = cv2.VideoWriter_fourcc(*'mp4v')
-            self.record_out = cv2.VideoWriter(self.output_file, four_cc, 15.0, (self.frame_resized["width"],self.frame_resized["height"]))
+        # if(self.save_video):
+        #     four_cc = cv2.VideoWriter_fourcc(*'mp4v')
+        #     self.record_out = cv2.VideoWriter(self.output_file, four_cc, 15.0, (self.frame_resized["width"],self.frame_resized["height"]))
             
-        else:
-            self.record_out = None
+        # else:
+        #     self.record_out = None
+        self.record_out = None
+        self.ffmpeg = 'ffmpeg'
+        self.dimension = '{}x{}'.format(self.frame_resized["width"],self.frame_resized["height"])
+
+
 
     def retrieve_frame(self):
         """
@@ -135,18 +156,24 @@ class CameraSurveillance:
     def queue_frame(self, frame):
         self.image_queue.put_nowait(frame)
     def save_video_frames(self):
-        if(self.save_video):
+        
             while(not self.camera_stop or self.image_queue.qsize() > 0):
-                if(self.image_queue.qsize() == 0):
+                
+                if(self.image_queue.qsize() == 0 or not self.save_video):
                     sleep(0.1)
+                    continue
                 frame = None
                 try:
                     frame = self.image_queue.get_nowait()
                 except Exception as e:
                     pass
-                if(isinstance(frame, np.ndarray)):
-                    print("Recording...")    
-                    self.record_out.write(frame)
+                if(isinstance(frame, np.ndarray)):  
+                    #print("Recording....")         
+                    try:       
+                        #self.record_out.write(frame)
+                        self.record_out.stdin.write(frame.tostring())
+                    except Exception as e:
+                        print(f"There was an error capturing frame {e}")
     def loop_camera_frames(self):
         """
             Continuously Capture Frames from Camera.
@@ -216,10 +243,67 @@ class CameraSurveillance:
                                                            img_ratio=1,
                                                            confidence_level=0.6)
             # Send detected objects to tracker.
-            resized_frame, new_objects_count = self.obj_tracker.track(resized_frame, detected_objects, total_objects)
-            if(new_objects_count > 0): ## Notify if new objects found.
-                pass
+            resized_frame, new_objects_count, total_obj_tracked, str_object_detected = self.obj_tracker.track(resized_frame, detected_objects, total_objects)
+            if(total_obj_tracked > 0 and not self.save_video): ## Notify if new objects found.
+                
+                self.datetime = datetime.now().strftime("%Y%m%d%H%M%S")
+                self.output_file = f"recorded_videos/raw_capture_{self.datetime}.mp4"
+
+                print(f"Start Recording... {self.output_file}")
+
+                # four_cc = cv2.VideoWriter_fourcc(*'mp4v')
+                # self.record_out = cv2.VideoWriter(self.output_file, four_cc, 15.0, (self.frame_resized["width"],self.frame_resized["height"]))
+                self.save_video = True
+                command = [self.ffmpeg,
+                        '-y',
+                        '-f', 'rawvideo',
+                        '-vcodec','rawvideo',
+                        '-s', self.dimension,
+                        '-pix_fmt', 'bgr24',
+                        '-r', '15',
+                        '-i', '-',
+                        "-metadata",f"title=\"{str_object_detected}\""
+                        '-an',
+                        '-vcodec','mpeg4',
+                        '-b:v', '5000k',
+                        self.output_file ]
+                self.record_out = sp.Popen(command, stdin=sp.PIPE, stderr=sp.PIPE)
+                print(resized_frame.shape)
+                print(f"==> ({self.frame_resized['width']},{self.frame_resized['height']})")
+            else:
+                #print(f"Extra: {self.record_extra_frame_count}")
+                if(self.save_video and total_obj_tracked == 0 and self.record_extra_frame_count > 45):
+                    print(f"Recording Stopped... {self.output_file}")
+                    #self.record_out.release()
+                    self.record_out.close()
+                    self.save_video = False
+                    self.notify_users = True
+                    self.record_extra_frame_count = 0
+                else:
+#                    print(f"Total Objects Tracked: {total_obj_tracked}")
+                    if(total_obj_tracked == 0):
+                        self.record_extra_frame_count += 1
+                    else:
+                        self.record_extra_frame_count = 0
+                
         else:
+
+            ## if there is nothing detected and the video is still being recorded
+            ## it needs to record only additional 45 frames. then stop recording.
+            if(self.save_video):
+                if(self.record_extra_frame_count < 45):
+                    self.record_extra_frame_count += 1
+                else:
+                    print(f"Recording Stopped... {self.output_file}")
+
+                    self.save_video = False
+                    self.record_extra_frame_count = 0
+                    self.notify_users = True
+                    #self.record_out.release()
+                    self.record_out.stdin.close()
+                    self.record_out.stderr.close()
+                    self.record_out.wait()
+                    
             
             self.obj_tracker.clear_tracker()
                     
@@ -287,7 +371,12 @@ class CameraSurveillance:
         cv2.putText(resized_frame,f"Detected Objects #(Yolo): " + str(total_objects),
                     [text_pos_x,self.frame_resized["height"]-fg_mask.shape[0]+90],
                     cv2.FONT_HERSHEY_DUPLEX,0.5,(0,255,255),
-                    1)        
+                    1)     
+        if(self.save_video):  
+            cv2.putText(resized_frame,f"Recording...",
+                [text_pos_x,self.frame_resized["height"]-fg_mask.shape[0]+105],
+                cv2.FONT_HERSHEY_DUPLEX,0.5,(0,0,255),
+                1)   
         #self.show_window(resized_frame)
         
         # if self.save_video:
@@ -309,8 +398,8 @@ class CameraSurveillance:
             cv2.destroyAllWindows()
             self.cap.release()
             self.camera_stop = True
-            if(self.save_video):
-                self.record_out.release()
+            # if(self.save_video):
+            #     self.record_out.release()
 
 
 
