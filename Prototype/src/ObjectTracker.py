@@ -2,7 +2,8 @@ import math
 import cv2
 from datetime import datetime
 class ObjectTracker:
-    def __init__(self, centroid_max_dist=100, show_centroid_trail=False):
+    def __init__(self, centroid_max_dist=100, show_centroid_trail=False, debug=False):
+        self.debug = debug
         ## for future - store np array and perform cosine similarity to check of objects are similar
         self.objects = [] 
 
@@ -42,6 +43,9 @@ class ObjectTracker:
         ## Object metadata on what was detected.
         self.object_metadata = []
 
+        ## dictionary of all metadata
+        self.collection_metadata = {}
+
         
     def clear_tracker(self):
         self.consecutive_frames_noobject += 1
@@ -54,6 +58,7 @@ class ObjectTracker:
             self.tracked_counter = []
             self.object_direction = []
             self.object_metadata = []
+            self.collection_metadata = {}
     def get_distance(self,p1, p2):
         """
             Assume p1 = {"x": x, "y": y}
@@ -73,7 +78,7 @@ class ObjectTracker:
         if(total_objects == 0):
             self.clear_tracker()
                 
-            return input_frame,0,0,None
+            return input_frame,0,0,None,""
         else:
             self.consecutive_frames_noobject = 0
             for object_no, object in enumerate(objects):
@@ -104,18 +109,19 @@ class ObjectTracker:
                         self.object_direction[last_tracked_centroid_index] = "West"
                     elif (self.tracked_centroids[last_tracked_centroid_index][0]["x"] - centroid["x"]) >  100:    
                         self.object_direction[last_tracked_centroid_index] = "East"
-                    if (self.tracked_centroids[last_tracked_centroid_index][0]["y"] - centroid["y"]) < - 100:
-                        self.object_direction[last_tracked_centroid_index] = "Into Driveway"
+                    if (self.tracked_centroids[last_tracked_centroid_index][0]["y"] - centroid["y"]) < -100:
+                        self.object_direction[last_tracked_centroid_index] = "Towards Driveway"
                     elif (self.tracked_centroids[last_tracked_centroid_index][0]["y"] - centroid["y"]) >  100:    
                         self.object_direction[last_tracked_centroid_index] = "Away from Driveway"
 
                     self.last_centroids[last_tracked_centroid_index] = centroid
-                    
-                    cv2.rectangle(input_frame, (10,500-(object_no+3)* 30,800,500-(object_no+2)*30) , (20,20,20),-1)
-                    
-                    cv2.putText(input_frame,f"{object_class} #{self.tracked_counter[last_tracked_centroid_index]} is moving {self.object_direction[last_tracked_centroid_index]}",
-                                [15, 500 - (object_no+2)*30],cv2.FONT_HERSHEY_DUPLEX,0.6,(255,255,255),1)
-
+                    if(self.debug):
+                        cv2.rectangle(input_frame, (10,500-(object_no+3)* 30,800,500-(object_no+2)*30) , (20,20,20),-1)
+                        
+                        cv2.putText(input_frame,f"{object_class} #{self.tracked_counter[last_tracked_centroid_index]} is moving {self.object_direction[last_tracked_centroid_index]}",
+                                    [15, 500 - (object_no+2)*30],cv2.FONT_HERSHEY_DUPLEX,0.6,(255,255,255),1)
+                    if(self.object_direction[last_tracked_centroid_index] != ""):
+                        self.collection_metadata[f"{object_class} #{self.tracked_counter[last_tracked_centroid_index]} is tracked moving {self.object_direction[last_tracked_centroid_index]}"] = 1
 
                 else:
                     self.tracked_centroids.append([centroid])
@@ -135,13 +141,14 @@ class ObjectTracker:
                     cv2.putText(input_frame,f"{object_class} Id: {self.tracked_counter[last_tracked_centroid_index]}",[int(x1), int(y1)-1],cv2.FONT_HERSHEY_DUPLEX,0.7,(255,255,255),1)
                     cv2.rectangle(input_frame, (int(x1),int(y1)), (int(x2),int(y2)), (255,0,102),2)
 
-                for idx in range(1,len(self.tracked_centroids[last_tracked_centroid_index])):
-                
-                    prior_point = self.tracked_centroids[last_tracked_centroid_index][idx-1]
-                    curr_point = self.tracked_centroids[last_tracked_centroid_index][idx]
-                    cv2.line(input_frame,(prior_point["x"], prior_point["y"]), (curr_point["x"], curr_point["y"]), (0,0,255),2)
-                    cv2.circle(input_frame, (curr_point["x"],curr_point["y"]), 3, (255,255,255), 3)
-                    cv2.circle(input_frame, (prior_point["x"],prior_point["y"]), 3, (255,255,255), 3)
+                if(self.debug):
+                    for idx in range(1,len(self.tracked_centroids[last_tracked_centroid_index])):
+                    
+                        prior_point = self.tracked_centroids[last_tracked_centroid_index][idx-1]
+                        curr_point = self.tracked_centroids[last_tracked_centroid_index][idx]
+                        cv2.line(input_frame,(prior_point["x"], prior_point["y"]), (curr_point["x"], curr_point["y"]), (0,0,255),2)
+                        cv2.circle(input_frame, (curr_point["x"],curr_point["y"]), 3, (255,255,255), 3)
+                        cv2.circle(input_frame, (prior_point["x"],prior_point["y"]), 3, (255,255,255), 3)
                 if(shortest_dist != 1000):
                     if (((self.tracked_centroids[last_tracked_centroid_index][0]["x"] - centroid["x"]) > 100) and (centroid["x"] < 50))\
                         or (((self.tracked_centroids[last_tracked_centroid_index][0]["x"] - centroid["x"]) < -100) and (centroid["x"] > 900)):
@@ -155,7 +162,8 @@ class ObjectTracker:
 
 
         objects_detected = ",".join(self.object_metadata) + " detected at " + datetime.now().strftime("%Y-%d-%m %H:%M:%S")
-        return input_frame, new_objects_count, self.total_tracked_objects, objects_detected
+
+        return input_frame, new_objects_count, self.total_tracked_objects, objects_detected, self.collection_metadata
         
 
 

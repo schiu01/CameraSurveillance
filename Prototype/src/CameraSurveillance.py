@@ -24,6 +24,9 @@ class CameraSurveillance:
         self.config_file = "../config/camera_surveillance.config"
         self.read_config()
 
+        ## Debug flag to show stats
+        self.debug = self.config.get("debug")
+
         ## Initialization of frame sizes
         self.frame_size = {"width": 0, "height": 0, "channels": 3}
         self.frame_resized = {"width": 0, "height": 0, "channels": 3}
@@ -41,9 +44,11 @@ class CameraSurveillance:
         self.object_detected_start = False
         self.object_detected_starttime = None
         self.object_detected_endtime = None
+        self.video_comments = {}
 
         ## Record 3 more seconds AFTER object is no longer detected; so if another object comes to scene it continues recording.
         self.record_extra_frame_count = 0 
+        self.total_extra_frames_recorded = (5*15) ## 5 seconds additional.
 
         ## Date time for filename saved as.
         self.datetime = datetime.now().strftime("%Y%m%d")
@@ -55,7 +60,7 @@ class CameraSurveillance:
         # Object Tracker
         show_centroid_trail = self.config["object_tracker_centroid_trail"]
         centroid_max_distance = self.config["centroid_max_distance"]
-        self.obj_tracker = ObjectTracker(centroid_max_distance, show_centroid_trail)
+        self.obj_tracker = ObjectTracker(centroid_max_distance, show_centroid_trail, self.debug)
 
         # Version Info
         self.version_info = self.config["version_info"]
@@ -73,7 +78,6 @@ class CameraSurveillance:
 
         ## Notification Flag
         self.notify_users = False
-
 
         
     def start(self):
@@ -243,13 +247,15 @@ class CameraSurveillance:
                                                            img_ratio=1,
                                                            confidence_level=0.6)
             # Send detected objects to tracker.
-            resized_frame, new_objects_count, total_obj_tracked, str_object_detected = self.obj_tracker.track(resized_frame, detected_objects, total_objects)
+            resized_frame, new_objects_count, total_obj_tracked, str_object_detected, comments = self.obj_tracker.track(resized_frame, detected_objects, total_objects)
+            for str_comment in comments:
+                self.video_comments[str_comment] = 1
             if(total_obj_tracked > 0 and not self.save_video): ## Notify if new objects found.
                 
                 self.datetime = datetime.now().strftime("%Y%m%d%H%M%S")
-                self.output_file = f"recorded_videos/raw_capture_{self.datetime}.mp4"
+                self.output_file = f"recorded_videos/vidtmp_raw_capture_{self.datetime}.mp4"
 
-                print(f"Start Recording... {self.output_file}")
+                #print(f"Start Recording... {self.output_file}")
 
                 # four_cc = cv2.VideoWriter_fourcc(*'mp4v')
                 # self.record_out = cv2.VideoWriter(self.output_file, four_cc, 15.0, (self.frame_resized["width"],self.frame_resized["height"]))
@@ -268,17 +274,20 @@ class CameraSurveillance:
                         '-b:v', '5000k',
                         self.output_file ]
                 self.record_out = sp.Popen(command, stdin=sp.PIPE, stderr=sp.PIPE)
-                print(resized_frame.shape)
-                print(f"==> ({self.frame_resized['width']},{self.frame_resized['height']})")
+                # print(resized_frame.shape)
+                # print(f"==> ({self.frame_resized['width']},{self.frame_resized['height']})")
             else:
                 #print(f"Extra: {self.record_extra_frame_count}")
-                if(self.save_video and total_obj_tracked == 0 and self.record_extra_frame_count > 45):
-                    print(f"Recording Stopped... {self.output_file}")
+                if(self.save_video and total_obj_tracked == 0 and self.record_extra_frame_count > self.total_extra_frames_recorded):
+                    #print(f"Recording Stopped... {self.output_file}")
                     #self.record_out.release()
-                    self.record_out.close()
+                    self.record_out.stdin.close()
+                    self.record_out.wait()
                     self.save_video = False
                     self.notify_users = True
                     self.record_extra_frame_count = 0
+                    self.video_comments = {}
+
                 else:
 #                    print(f"Total Objects Tracked: {total_obj_tracked}")
                     if(total_obj_tracked == 0):
@@ -291,10 +300,10 @@ class CameraSurveillance:
             ## if there is nothing detected and the video is still being recorded
             ## it needs to record only additional 45 frames. then stop recording.
             if(self.save_video):
-                if(self.record_extra_frame_count < 45):
+                if(self.record_extra_frame_count < self.total_extra_frames_recorded):
                     self.record_extra_frame_count += 1
                 else:
-                    print(f"Recording Stopped... {self.output_file}")
+                    #print(f"Recording Stopped... {self.output_file}")
 
                     self.save_video = False
                     self.record_extra_frame_count = 0
@@ -303,6 +312,7 @@ class CameraSurveillance:
                     self.record_out.stdin.close()
                     self.record_out.stderr.close()
                     self.record_out.wait()
+                    self.video_comments = {}
                     
             
             self.obj_tracker.clear_tracker()
@@ -318,65 +328,67 @@ class CameraSurveillance:
 
 
 
+        if(self.debug):
 
-        ## Original FG Mask without any dilation etc..
-        resized_frame[self.frame_resized["height"]-fg_mask.shape[0]:self.frame_resized["height"], 0:fg_mask.shape[1]] = cv2.cvtColor(orig_fg_mask,cv2.COLOR_GRAY2BGR)
+            
+            ## Original FG Mask without any dilation etc..
+            resized_frame[self.frame_resized["height"]-fg_mask.shape[0]:self.frame_resized["height"], 0:fg_mask.shape[1]] = cv2.cvtColor(orig_fg_mask,cv2.COLOR_GRAY2BGR)
 
-        ## Use an area at bottom of window to show fgmask and frame stats
-        resized_frame[self.frame_resized["height"]-fg_mask.shape[0]:self.frame_resized["height"], 321:321+fg_mask.shape[1]] = cv2.cvtColor(fg_mask,cv2.COLOR_GRAY2BGR)
+            ## Use an area at bottom of window to show fgmask and frame stats
+            resized_frame[self.frame_resized["height"]-fg_mask.shape[0]:self.frame_resized["height"], 321:321+fg_mask.shape[1]] = cv2.cvtColor(fg_mask,cv2.COLOR_GRAY2BGR)
 
-        ## Add black box and add text for stats
-        cv2.rectangle(resized_frame, (3*fg_mask.shape[1]+3,self.frame_resized["height"]-fg_mask.shape[0]),(4*fg_mask.shape[1]+4,self.frame_resized["height"]), (20,20,20),-1)
-        
-        # Yolo Input
-        roi_frame_resized = cv2.resize(roi_frame,(320,180), interpolation=cv2.INTER_AREA)
-        resized_frame[self.frame_resized["height"]-roi_frame_resized.shape[0]:self.frame_resized["height"], 
-                      2*fg_mask.shape[1]+2:2*fg_mask.shape[1] + roi_frame_resized.shape[1]+2] = roi_frame_resized
+            ## Add black box and add text for stats
+            cv2.rectangle(resized_frame, (3*fg_mask.shape[1]+3,self.frame_resized["height"]-fg_mask.shape[0]),(4*fg_mask.shape[1]+4,self.frame_resized["height"]), (20,20,20),-1)
+            
+            # Yolo Input
+            roi_frame_resized = cv2.resize(roi_frame,(320,180), interpolation=cv2.INTER_AREA)
+            resized_frame[self.frame_resized["height"]-roi_frame_resized.shape[0]:self.frame_resized["height"], 
+                        2*fg_mask.shape[1]+2:2*fg_mask.shape[1] + roi_frame_resized.shape[1]+2] = roi_frame_resized
 
-        cv2.putText(resized_frame,"Original FG Mask",[0,self.frame_resized["height"]-fg_mask.shape[0]-2],cv2.FONT_HERSHEY_DUPLEX,0.7,(0,255,0),1)
-        cv2.putText(resized_frame,"Augmented FG Mask",[321,self.frame_resized["height"]-fg_mask.shape[0]-2],cv2.FONT_HERSHEY_DUPLEX,0.7,(0,255,0),1)
-        cv2.putText(resized_frame,"Yolo Model Input",[(321*2),self.frame_resized["height"]-fg_mask.shape[0]-2],cv2.FONT_HERSHEY_DUPLEX,0.7,(0,255,0),1)
-        cv2.putText(resized_frame,"Info",[(321*3),self.frame_resized["height"]-fg_mask.shape[0]-2],cv2.FONT_HERSHEY_DUPLEX,0.7,(0,255,0),1)
+            cv2.putText(resized_frame,"Original FG Mask",[0,self.frame_resized["height"]-fg_mask.shape[0]-2],cv2.FONT_HERSHEY_DUPLEX,0.7,(0,255,0),1)
+            cv2.putText(resized_frame,"Augmented FG Mask",[321,self.frame_resized["height"]-fg_mask.shape[0]-2],cv2.FONT_HERSHEY_DUPLEX,0.7,(0,255,0),1)
+            cv2.putText(resized_frame,"Yolo Model Input",[(321*2),self.frame_resized["height"]-fg_mask.shape[0]-2],cv2.FONT_HERSHEY_DUPLEX,0.7,(0,255,0),1)
+            cv2.putText(resized_frame,"Info",[(321*3),self.frame_resized["height"]-fg_mask.shape[0]-2],cv2.FONT_HERSHEY_DUPLEX,0.7,(0,255,0),1)
 
-        ## For debug version info
-        cv2.rectangle(resized_frame, (300,0,800,30) , (20,20,20),-1)
-        cv2.putText(resized_frame,self.version_info,(310,20), cv2.FONT_HERSHEY_DUPLEX,0.7,(0,0,255),1)
+            ## For debug version info
+            cv2.rectangle(resized_frame, (300,0,800,30) , (20,20,20),-1)
+            cv2.putText(resized_frame,self.version_info,(310,20), cv2.FONT_HERSHEY_DUPLEX,0.7,(0,0,255),1)
 
 
-        ## Pixels Changed
-        
-        text_pos_x = 3*fg_mask.shape[1] + 4
-        cv2.putText(resized_frame,f"Video Source: {self.config.get('source')}",
-            [text_pos_x,self.frame_resized["height"]-fg_mask.shape[0]+15],
-            cv2.FONT_HERSHEY_DUPLEX,0.5,(0,0,255),
-            1)
-
-        cv2.putText(resized_frame,f"BS Type: {self.background_mask.bs_type}",
-                    [text_pos_x,self.frame_resized["height"]-fg_mask.shape[0]+30],
-                    cv2.FONT_HERSHEY_DUPLEX,0.5,(0,0,255),
-                    1)
-
-        cv2.putText(resized_frame,f"Pixels Changed %: {self.background_mask.pixels_changed_pct} %",
-                    [text_pos_x,self.frame_resized["height"]-fg_mask.shape[0]+45],
-                    cv2.FONT_HERSHEY_DUPLEX,0.5,(0,255,255),
-                    1)
-        cv2.putText(resized_frame,f"Pixels Changed : {self.background_mask.pixels_changed}",
-                    [text_pos_x,self.frame_resized["height"]-fg_mask.shape[0]+60],
-                    cv2.FONT_HERSHEY_DUPLEX,0.5,(0,255,255),
-                    1)
-        cv2.putText(resized_frame,f"Total Pixels : 57.6k",
-                    [text_pos_x,self.frame_resized["height"]-fg_mask.shape[0]+75],
-                    cv2.FONT_HERSHEY_DUPLEX,0.5,(0,255,255),
-                    1)
-        cv2.putText(resized_frame,f"Detected Objects #(Yolo): " + str(total_objects),
-                    [text_pos_x,self.frame_resized["height"]-fg_mask.shape[0]+90],
-                    cv2.FONT_HERSHEY_DUPLEX,0.5,(0,255,255),
-                    1)     
-        if(self.save_video):  
-            cv2.putText(resized_frame,f"Recording...",
-                [text_pos_x,self.frame_resized["height"]-fg_mask.shape[0]+105],
+            ## Pixels Changed
+            
+            text_pos_x = 3*fg_mask.shape[1] + 4
+            cv2.putText(resized_frame,f"Video Source: {self.config.get('source')}",
+                [text_pos_x,self.frame_resized["height"]-fg_mask.shape[0]+15],
                 cv2.FONT_HERSHEY_DUPLEX,0.5,(0,0,255),
-                1)   
+                1)
+
+            cv2.putText(resized_frame,f"BS Type: {self.background_mask.bs_type}",
+                        [text_pos_x,self.frame_resized["height"]-fg_mask.shape[0]+30],
+                        cv2.FONT_HERSHEY_DUPLEX,0.5,(0,0,255),
+                        1)
+
+            cv2.putText(resized_frame,f"Pixels Changed %: {self.background_mask.pixels_changed_pct} %",
+                        [text_pos_x,self.frame_resized["height"]-fg_mask.shape[0]+45],
+                        cv2.FONT_HERSHEY_DUPLEX,0.5,(0,255,255),
+                        1)
+            cv2.putText(resized_frame,f"Pixels Changed : {self.background_mask.pixels_changed}",
+                        [text_pos_x,self.frame_resized["height"]-fg_mask.shape[0]+60],
+                        cv2.FONT_HERSHEY_DUPLEX,0.5,(0,255,255),
+                        1)
+            cv2.putText(resized_frame,f"Total Pixels : 57.6k",
+                        [text_pos_x,self.frame_resized["height"]-fg_mask.shape[0]+75],
+                        cv2.FONT_HERSHEY_DUPLEX,0.5,(0,255,255),
+                        1)
+            cv2.putText(resized_frame,f"Detected Objects #(Yolo): " + str(total_objects),
+                        [text_pos_x,self.frame_resized["height"]-fg_mask.shape[0]+90],
+                        cv2.FONT_HERSHEY_DUPLEX,0.5,(0,255,255),
+                        1)     
+            if(self.save_video):  
+                cv2.putText(resized_frame,f"Recording...",
+                    [text_pos_x,self.frame_resized["height"]-fg_mask.shape[0]+105],
+                    cv2.FONT_HERSHEY_DUPLEX,0.5,(0,0,255),
+                    1)   
         #self.show_window(resized_frame)
         
         # if self.save_video:
@@ -403,3 +415,5 @@ class CameraSurveillance:
 
 
 
+    def addCommentsffmpeg(self):
+        pass
