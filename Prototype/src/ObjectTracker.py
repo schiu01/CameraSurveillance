@@ -140,6 +140,12 @@ class ObjectTracker:
                     cv2.rectangle(input_frame, (int(x1),int(y1)-15), (int(x2),int(y1)), (255,0,102),-1)
                     cv2.putText(input_frame,f"{object_class} Id: {self.tracked_counter[last_tracked_centroid_index]}",[int(x1), int(y1)-1],cv2.FONT_HERSHEY_DUPLEX,0.7,(255,255,255),1)
                     cv2.rectangle(input_frame, (int(x1),int(y1)), (int(x2),int(y2)), (255,0,102),2)
+                else:
+                    cv2.rectangle(input_frame, (int(x1),int(y1)-15), (int(x2),int(y1)), (255,133,51),-1)
+                    cv2.putText(input_frame,f"{object_class} Id: {self.tracked_counter[last_tracked_centroid_index]}",[int(x1), int(y1)-1],cv2.FONT_HERSHEY_DUPLEX,0.7,(255,255,255),1)
+                    cv2.rectangle(input_frame, (int(x1),int(y1)), (int(x2),int(y2)),  (255,133,51),2)
+                    
+
 
                 if(self.debug):
                     for idx in range(1,len(self.tracked_centroids[last_tracked_centroid_index])):

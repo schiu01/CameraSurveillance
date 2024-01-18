@@ -11,6 +11,13 @@ from threading import Thread
 from multiprocessing.pool import Pool
 from queue import Queue
 import subprocess as sp
+import os
+import ffmpeg
+import threading
+c =  threading.Condition()
+process = None
+http_start = False
+
 
 
 class CameraSurveillance:
@@ -21,7 +28,7 @@ class CameraSurveillance:
             
         """
         self.config = None
-        self.config_file = "../config/camera_surveillance.config"
+        self.config_file = "./config/camera_surveillance.config"
         self.read_config()
 
         ## Debug flag to show stats
@@ -89,8 +96,11 @@ class CameraSurveillance:
         th1.start()
         th2 = Thread(name="save_frame", target=self.save_video_frames)
         th2.start()
+        th3 = Thread(name="http_stream", target=self.http_stream)
+        th3.start()
         th1.join()
         th2.join()
+#        th3.join()
         #self.loop_camera_frames()
 
     def read_config(self):
@@ -149,8 +159,6 @@ class CameraSurveillance:
         self.ffmpeg = 'ffmpeg'
         self.dimension = '{}x{}'.format(self.frame_resized["width"],self.frame_resized["height"])
 
-
-
     def retrieve_frame(self):
         """
             Image Retrieval from Camera.
@@ -178,11 +186,96 @@ class CameraSurveillance:
                         self.record_out.stdin.write(frame.tostring())
                     except Exception as e:
                         print(f"There was an error capturing frame {e}")
+    def http_stream(self):
+        while(True):
+            global http_start
+            global process
+            
+            if(process == None):
+                print("Starting Process...")
+                http_start = False
+                # command = [
+                #     "ffmpeg_g","hwaccel_output_format=cuda", 
+                #     "-i","-",
+                #     "-c:v","h264",
+                #     "-g","64",
+                #     "-f","rtsp",
+                #     "-rtsp_transport","udp",
+                #     "rtsp://0.0.0.0:8554/surveillance"
+                # ]
+                # process = sp.Popen(command, stdin=sp.PIPE, stderr=sp.PIPE)
+
+                process = (
+                    ffmpeg
+                    .input('pipe:', hwaccel_output_format="cuda", format='rawvideo',codec="rawvideo", pix_fmt='bgr24', s='{}x{}'.format(self.frame_resized["width"], self.frame_resized["height"]))
+                    .output(
+                        "rtsp://0.0.0.0:8554/surveillance",
+                        #codec = "copy", # use same codecs of the original video
+                        #listen=1, # enables HTTP server
+                        #codec="libx264",
+                        codec="h264",
+                        pix_fmt="yuv420p",
+                        #preset="ultrafast",
+                        rtsp_transport="udp",
+                        maxrate="1200k",
+                        bufsize="5000k",
+                        #vf="scale=640:360",
+                        g="64",
+                        probesize="64",
+                        f="rtsp")
+                    .overwrite_output()
+                    .run_async("ffmpeg_g",  pipe_stdin=True)
+                )
+                http_start = True
+                print(process.get_args())
+            else:
+                if(process.poll() is not None):
+                    http_start = False
+                    process = (
+                        ffmpeg
+                        .input('pipe:', hwaccel_output_format="cuda", format='rawvideo',codec="rawvideo", pix_fmt='bgr24', s='{}x{}'.format(self.frame_resized["width"], self.frame_resized["height"]))
+                        .output(
+                            "rtsp://0.0.0.0:8554/surveillance",
+                            #codec = "copy", # use same codecs of the original video
+                            #listen=1, # enables HTTP server
+                            #codec="libx264",
+                            codec="h264",
+                            pix_fmt="yuv420p",
+                            #preset="ultrafast",
+                            rtsp_transport="udp",
+                            maxrate="2400k",
+                            bufsize="5000k",
+                            #vf="scale=640:360",
+                            g="64",
+                            probesize="64",
+                            f="rtsp")
+                        .overwrite_output()
+                        .run_async("ffmpeg_g", pipe_stdin=True)
+                    )
+                            
+                    # command = [
+                    #     "ffmpeg_g","hwaccel_output_format=cuda", 
+                    #     "-i","-",
+                    #     "-c:v","h264",
+                    #     "-g","64",
+                    #     "-f","rtsp",
+                    #     "-rtsp_transport","udp",
+                    #     "rtsp://0.0.0.0:8554/surveillance"
+                    # ]
+                    # process = sp.Popen(command,  stdin=sp.PIPE, stderr=sp.PIPE)
+                    http_start = True
+                else: 
+                    sleep(1)
+
+            
+
+        
     def loop_camera_frames(self):
         """
             Continuously Capture Frames from Camera.
             
         """
+ 
 
         while(not self.camera_stop):
         # Consume the queue.
@@ -193,11 +286,15 @@ class CameraSurveillance:
                 if(frame.size == 0):
                     break
                 pframe = self.process_frame(frame)
-                self.show_window(pframe)
+                #self.show_window(pframe)
                 if(self.save_video):
                     self.queue_frame(pframe)
 
-                
+                if(http_start):
+                    try:
+                        process.stdin.write(pframe.tobytes())
+                    except Exception as e:
+                        pass
                 
 
         self.pool.close()
@@ -235,7 +332,7 @@ class CameraSurveillance:
                     cv2.rectangle(fgmask_new, (cx, cy), (cx+cw, cy+ch), (1,1), -1 )
                     #cv2.rectangle(resized_frame, (cx, cy), (cx+cw, cy+ch), (0,255,0), 2 )
                     #print(f"CTR Area: {ctr_area} | height: {h}")
-                    cv2.imwrite("images/detected.jpg", self.frame_resized)
+                    #cv2.imwrite("images/detected.jpg", self.frame_resized)
                     ## Get the Regions of Interests
                     ## Apppy bitwise and with fgmask, and retrieve the ROIs.
         if(total_blobs > 0):
@@ -268,32 +365,31 @@ class CameraSurveillance:
                         '-pix_fmt', 'bgr24',
                         '-r', '15',
                         '-i', '-',
-                        "-metadata",f"title=\"{str_object_detected}\""
-                        '-an',
+                        "-metadata",f"title={str_object_detected}",
+                        #'-vcodec','h264',
                         '-vcodec','mpeg4',
+                        '-crf','20',
                         '-b:v', '5000k',
                         self.output_file ]
                 self.record_out = sp.Popen(command, stdin=sp.PIPE, stderr=sp.PIPE)
                 # print(resized_frame.shape)
                 # print(f"==> ({self.frame_resized['width']},{self.frame_resized['height']})")
-            else:
-                #print(f"Extra: {self.record_extra_frame_count}")
-                if(self.save_video and total_obj_tracked == 0 and self.record_extra_frame_count > self.total_extra_frames_recorded):
-                    #print(f"Recording Stopped... {self.output_file}")
-                    #self.record_out.release()
-                    self.record_out.stdin.close()
-                    self.record_out.wait()
-                    self.save_video = False
-                    self.notify_users = True
-                    self.record_extra_frame_count = 0
-                    self.video_comments = {}
+#             else:
+#                 if(self.save_video and total_obj_tracked == 0 and self.record_extra_frame_count > self.total_extra_frames_recorded):
+#                     self.record_out.stdin.close()
+#                     self.record_out.wait()
+#                     self.save_video = False
+#                     self.notify_users = True
+#                     self.record_extra_frame_count = 0
+#                     self.addCommentsffmpeg()
+#                     self.video_comments = {}
 
-                else:
-#                    print(f"Total Objects Tracked: {total_obj_tracked}")
-                    if(total_obj_tracked == 0):
-                        self.record_extra_frame_count += 1
-                    else:
-                        self.record_extra_frame_count = 0
+#                 else:
+# #                    print(f"Total Objects Tracked: {total_obj_tracked}")
+#                     if(total_obj_tracked == 0):
+#                         self.record_extra_frame_count += 1
+#                     else:
+#                         self.record_extra_frame_count = 0
                 
         else:
 
@@ -304,6 +400,8 @@ class CameraSurveillance:
                     self.record_extra_frame_count += 1
                 else:
                     #print(f"Recording Stopped... {self.output_file}")
+                    ## Recording Stopped - Update Metadata on comments
+                
 
                     self.save_video = False
                     self.record_extra_frame_count = 0
@@ -312,6 +410,8 @@ class CameraSurveillance:
                     self.record_out.stdin.close()
                     self.record_out.stderr.close()
                     self.record_out.wait()
+
+                    self.addCommentsffmpeg()
                     self.video_comments = {}
                     
             
@@ -416,4 +516,17 @@ class CameraSurveillance:
 
 
     def addCommentsffmpeg(self):
-        pass
+        
+        comment = ""
+        output_file = self.output_file.replace("vidtmp_","")
+        for c in self.video_comments:
+            comment += c + "\n"
+        print(f"Updating Video with Comments: {comment}")
+        command = [self.ffmpeg,
+        '-i', self.output_file,
+        '-c','copy',
+        "-metadata",f"comment={comment}",
+        output_file ]
+        proc = sp.Popen(command, stdin=sp.PIPE, stderr=sp.PIPE)
+        proc.wait()
+        os.remove(self.output_file)
