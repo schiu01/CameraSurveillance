@@ -1,0 +1,314 @@
+<html>
+<head>
+    <title>Recorded Videos</title>
+</head>
+<script src="/surveillance/static/js/d3.v7.js"></script>
+<script src="/surveillance/static/js/hls.js"></script>
+
+<!--
+
+    Author: Steven Chiu
+    Purpose: Calendar function to group videos together
+
+    This code is written from ground up using D3
+
+    Some references to  https://www.geeksforgeeks.org/how-to-design-a-simple-calendar-using-javascript/ for inspiration and guidance only
+
+    HTTP Live Streaming Library provided by: https://hlsjs.video-dev.org/demo/basic-usage
+
+
+-->
+<style>
+.top_menu_parent {
+    display: grid;
+    justify-content: center;
+    padding: 10px;
+}
+.top_menu {
+    display: grid;
+    grid-template-columns: auto auto auto;
+    width: 735px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    grid-gap: 10px;
+    margin-bottom: 10px;
+    background-color: black;
+    border-radius: 5px;
+    padding: 5px;;
+    
+}
+.menu_cell {
+    font-weight: bold;
+    text-align: center;
+    font-size: 18px;
+    color: #ffffff;
+    justify-content: center;
+}
+.cell-red {
+    background-color: red;
+}
+.menu_cell:hover {
+    font-weight: bold;
+    cursor: pointer;
+}
+.main_layout {
+    display: grid;
+    grid-template-columns: auto;
+    grid-gap: 10px;
+    justify-content: center;
+    
+}
+.video_play {
+    border: 2px solid #AAAAAA;
+    border-radius: 10px;
+    width: 735px;
+    height: 360px;
+}
+.calendar-hidden {
+    position: relative;
+    display: none !important;
+}
+.video-list-container-hidden {
+    position: relative;
+    display: none !important;
+}
+.calendar {
+    position: relative;
+    display: flex;
+}
+.video-list-container {
+    position: relative;
+    display: flex;
+}
+.other-info-container {
+    display: flex;
+    
+
+}
+.other-info-container-hidden {
+    display: none !important;
+    
+
+}
+.calendar-container {
+    display: grid;
+    grid-template-columns: repeat(7,50px);
+    border: 1px solid #000000;
+    border-radius: 10px;
+    grid-gap: 3px;
+    width: 735px;
+    justify-content: center;
+    padding: 5px;
+    
+}
+.calendar-month-head {
+    grid-column: 1 / 6;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 20px;
+    font-weight: bold;
+    text-align: center;
+    border-bottom: 1px solid #CCCCCC;
+
+}
+.calendar-week-head {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 15px;
+    font-weight: bold;
+    text-align: center;
+
+}
+.calendar-week-head-nav {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 15px;
+    font-weight: bold;
+    text-align: center;
+    cursor: pointer;
+
+}
+.calendar-cell {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 13px;
+    text-align: center;
+    height: 50px;
+    border: 1px solid #CCCCCC;
+    border-radius: 5px;
+
+}
+.calendar-cell-non-current {
+    color: #AAAAAA;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 13px;
+    text-align: center;
+    height: 50px;
+    border: 1px solid #CCCCCC;
+    border-radius: 5px;
+
+}
+.calendar-cell-curr-day {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 13px;
+    text-align: center;
+    height: 50px;
+    border: 1px solid #CCCCCC;
+    border-radius: 5px;
+    background-color: rgb(139, 21, 249);
+    color: #ffffff;
+    font-weight: bold;
+
+}
+.calendar-cell-selected-day {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 13px;
+    text-align: center;
+    height: 50px;
+    border: 1px solid #CCCCCC;
+    border-radius: 5px;
+    background-color: rgb(66, 201, 255);
+    color: #ffffff;
+    font-weight: bold;
+
+}
+.calendar-cell-grid {
+    display: grid;
+    grid-template-columns: auto;
+    border: 1px solid #2a2a2a;
+    cursor: pointer;
+    
+    
+
+}
+.calendar-cell-grid-header {
+    text-align: center;
+    background-color: rgb(255, 161, 61);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 13px;
+    font-weight: bold;
+    border: 1px solid #2a2a2a;
+    border-radius: 5px;
+    grid-gap: 2px;
+    height: 50px;
+    text-align: center;
+    
+}
+.calendar-cell-grid-cell {
+    text-align: center;
+    background-color: rgb(255, 255, 255);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 13px;
+    border-radius: 5px;
+    font-weight: normal ;
+    height: 25px;
+    text-align: center;
+    cursor: pointer;
+}
+.calendar-cell-grid-cell-currday {
+    text-align: center;
+    cursor: pointer;
+
+}
+.calendar-cell-grid-cell-selectedday {
+    text-align: center;
+    cursor: pointer;
+
+}
+.hour-grid {
+    display: grid;
+    grid-template-columns: repeat(13,54px);
+    grid-gap: 2px;
+    border: 2px solid #9b9898;
+    width: 725px;
+    border-radius: 5px;
+    padding: 10px;
+}
+.hour-grid-bold {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    border: 1px solid rgb(95, 95, 95);
+    text-align: center;
+    background-color: #AAAAAA;
+    font-size: 26px;
+    font-weight: bold;
+
+}
+.hour-grid-cell {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    border-bottom: 1px solid rgb(32, 32, 32)f;
+    text-align: center;
+    font-size: 18px;
+    background-color: rgb(217, 218, 218);
+    height:60px;
+    cursor: pointer;
+
+}
+.hour-grid-cell-selected {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    border-bottom: 1px solid rgb(32, 32, 32)f;
+    text-align: center;
+    font-size: 18px;
+    background-color: rgb(255, 151, 128);
+    height:60px;
+    cursor: pointer;
+
+}
+.video-list-main {
+    display: grid;
+    grid-template-columns: 100px auto;
+    grid-gap: 5px;
+    width: 725px;
+    padding: 10px;
+    border-radius: 5px;
+    border: 2px solid #9b9898;
+    height: 500px;
+    overflow: scroll;
+    overflow-x: hidden;
+
+}
+.video-list-time {
+    background-color: rgb(185, 183, 183);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    border-bottom: 1px solid #ffffff;
+
+}
+.video-list-content {
+    background-color: rgb(255, 253, 253);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    border-bottom: 1px solid rgb(185, 183, 183);
+
+}
+.video-list-content-grid {
+    display: grid;
+    grid-template-columns: 50px 100px 60px 60px auto;
+}
+.video-list-content-item {
+    border-bottom: 1px solid #AAAAAA;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 12px;
+
+}
+.video-list-content-item:hover {
+    border-bottom: 1px solid #AAAAAA;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 12px;
+    color: red;
+    cursor: pointer;
+
+}
+
+</style>
+<body>
+    <div class="top_menu_parent">
+        <div class="top_menu">
+            <div id="menu_recorded_videos" class="menu_cell cell-red"  onclick="changeMenu('menu_recorded_videos')">Recorded Videos</div>
+            <div id="menu_live" class="menu_cell" onclick="changeMenu('menu_live')">Live Stream</div>
+            <div id="menu_info" class="menu_cell" onclick="changeMenu('menu_other_info')">Other Info</div>
+        </div>
+        <div>
+
+            <form submit="login" methpod="post">
+                <div>Username: </div><div><input type="text" name="username" id="username"></div>
+                <div>Password: </div><div><input type="password" name="password" id="password"></div>
+                <div></div><div><input type=submit></div>
+            </form>
+        </div>
+    
+    </div>
+</body>
+</html>

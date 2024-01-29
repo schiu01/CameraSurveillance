@@ -222,12 +222,13 @@ class CameraSurveillance:
                         #vf="scale=640:360",
                         g="64",
                         probesize="64",
-                        f="rtsp")
+                        f="rtsp"
+                        )
                     .overwrite_output()
-                    .run_async("ffmpeg_g",  pipe_stdin=True)
+                    .run_async("ffmpeg_g",  pipe_stdin=True, quiet=True)
                 )
                 http_start = True
-                print(process.get_args())
+                
             else:
                 if(process.poll() is not None):
                     http_start = False
@@ -250,7 +251,7 @@ class CameraSurveillance:
                             probesize="64",
                             f="rtsp")
                         .overwrite_output()
-                        .run_async("ffmpeg_g", pipe_stdin=True)
+                        .run_async("ffmpeg_g", pipe_stdin=True, quiet=True)
                     )
                             
                     # command = [
@@ -275,18 +276,12 @@ class CameraSurveillance:
             Continuously Capture Frames from Camera.
             
         """
- 
-
         while(not self.camera_stop):
-        # Consume the queue.
-
             ret, frame = self.retrieve_frame()
-
             if(ret):
                 if(frame.size == 0):
                     break
                 pframe = self.process_frame(frame)
-                #self.show_window(pframe)
                 if(self.save_video):
                     self.queue_frame(pframe)
 
@@ -366,9 +361,10 @@ class CameraSurveillance:
                         '-r', '15',
                         '-i', '-',
                         "-metadata",f"title={str_object_detected}",
-                        #'-vcodec','h264',
-                        '-vcodec','mpeg4',
-                        '-crf','20',
+                        '-vcodec','h264',
+                        #'-vcodec','mpeg4',
+                        '-pix_fmt',"yuv420p",
+                        '-crf','23',
                         '-b:v', '5000k',
                         self.output_file ]
                 self.record_out = sp.Popen(command, stdin=sp.PIPE, stderr=sp.PIPE)

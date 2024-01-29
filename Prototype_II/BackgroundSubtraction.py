@@ -77,7 +77,10 @@ class BackgroundSubtraction:
             idx.append(x)
         return idx
     def get_fgmask_mog2(self,frame):
-        #resized_frame = cv2.resize(frame, (self.fgmask_width, self.fgmask_height), interpolation=cv2.INTER_AREA)
+        """
+            Retrieve Foreground mask using MOG2
+            Gaussian Blur is applied so minor movements are discarded (example: leaf movements or gradual change in lighting env.)
+        """
         resized_frame = cv2.GaussianBlur(frame,(3,3),0) 
         orig_fgmask = self.backsub.apply(resized_frame)
         fgmask = cv2.dilate(orig_fgmask,None,iterations=2)

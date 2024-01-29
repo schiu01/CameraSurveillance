@@ -1,5 +1,5 @@
-from flask import Flask, render_template, Response, request
-from flask_socketio import SocketIO, disconnect
+from flask import Flask, render_template, Response, request, stream_with_context
+
 import sys
 import cv2
 import json as js
@@ -13,22 +13,25 @@ app = Flask(__name__, static_folder='static')
 cap = cv2.VideoCapture("rtsp://192.168.1.23:8554/surveillance")
 #cap = cv2.VideoCapture("http://192.168.1.23:8080/")
 connected = True
-socketio = SocketIO(app, async_mode=None)
+
 
 
 def gen_frames():
-    while True:
-        if(not connected):
-            break 
-        ret, frame = cap.read()
-        if(ret):
-        
-            frame = cv2.resize(frame, (960,540), interpolation=cv2.INTER_AREA)
-            encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 90]
-            ret, buffer = cv2.imencode(".png", frame, encode_param)
-            frame = buffer.tobytes()
-            yield(b'--frame\r\n'
-                  b'Content-Type: image/png\r\n\r\n' + frame + b'\r\n')
+    try:
+        while True:
+            if(not connected):
+                break 
+            ret, frame = cap.read()
+            if(ret):
+            
+                frame = cv2.resize(frame, (960,540), interpolation=cv2.INTER_AREA)
+                encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 90]
+                ret, buffer = cv2.imencode(".png", frame, encode_param)
+                frame = buffer.tobytes()
+                yield(b'--frame\r\n'
+                    b'Content-Type: image/png\r\n\r\n' + frame + b'\r\n')
+    except GeneratorExit:
+        pass
     
 @app.route("/")
 def index():
@@ -37,7 +40,7 @@ def index():
 @app.route("/cam")
 def cam():
     connected = True
-    return Response(gen_frames(), mimetype="multipart/x-mixed-replace; boundary=frame")
+    return Response(stream_with_context(gen_frames()), mimetype="multipart/x-mixed-replace; boundary=frame")
 @app.route("/static/recorded_videos/<path:path>")
 def static_file(path):
     return app.send_static_file(f"/opt/surveillance/www/static/recorded_videos/{path}")
@@ -109,7 +112,7 @@ def list_video_by_hour_mins():
             videos[str(idx)] = []
 
         videos[str(idx)].append({"date": file_date, 
-                            "filename": f["format"]["filename"],
+                            "filename": f["format"]["filename"].split("/")[-1],
                             "time": f"{hh}:{mi}:{ss}",
                             "title": title,
                             "duration": duration,
@@ -240,15 +243,5 @@ def list_videos_by_month_by_day():
     #return render_template("list_videos.html",files=metadata)   
     # return js.dumps(videos_month)
 
-
-@socketio.on("connect")
-def connect():
-    print("Connect...",file=sys.stderr)
-    connected=True
-
-@socketio.on('disconnect')
-def disconnect():
-    print("Disconnecting...",file=sys.stderr)
-    connected = False
 #if __name__ == "__main__":
 #    app.run(debug=True, port=5000, host='0.0.0.0')

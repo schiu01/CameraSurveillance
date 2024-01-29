@@ -1,424 +1,758 @@
-<html><head><title></title></head>
-<script src="https://d3js.org/d3.v7.js"></script>
+<html>
+<head>
+    <title>Recorded Videos</title>
+</head>
+<script src="/surveillance/static/js/d3.v7.js"></script>
+<script src="/surveillance/static/js/hls.js"></script>
 
-<link rel="stylesheet" href="/surveillance/static/css/w3.css">
+<!--
 
-<!-- https://www.geeksforgeeks.org/how-to-design-a-simple-calendar-using-javascript/ -->
-<link rel="stylesheet"  href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200">
-<body>
+    Author: Steven Chiu
+    Purpose: Calendar function to group videos together
+
+    This code is written from ground up using D3
+
+    Some references to  https://www.geeksforgeeks.org/how-to-design-a-simple-calendar-using-javascript/ for inspiration and guidance only
+
+    HTTP Live Streaming Library provided by: https://hlsjs.video-dev.org/demo/basic-usage
+
+
+-->
 <style>
-* {
-	margin: 0;
-	padding: 0;
-	font-family: 'Poppins', sans-serif;
+.top_menu_parent {
+    display: grid;
+    justify-content: center;
+    padding: 10px;
 }
+.top_menu {
+    display: grid;
+    grid-template-columns: auto auto auto;
+    width: 735px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    grid-gap: 10px;
+    margin-bottom: 10px;
+    background-color: black;
+    border-radius: 5px;
+    padding: 5px;;
+    
+}
+.menu_cell {
+    font-weight: bold;
+    text-align: center;
+    font-size: 18px;
+    color: #ffffff;
+    justify-content: center;
+}
+.cell-red {
+    background-color: red;
+}
+.menu_cell:hover {
+    font-weight: bold;
+    cursor: pointer;
+}
+.main_layout {
+    display: grid;
+    grid-template-columns: auto;
+    grid-gap: 10px;
+    justify-content: center;
+    
+}
+.video_play {
+    border: 2px solid #AAAAAA;
+    border-radius: 10px;
+    width: 735px;
+    height: 360px;
+}
+.calendar-hidden {
+    position: relative;
+    display: none !important;
+}
+.video-list-container-hidden {
+    position: relative;
+    display: none !important;
+}
+.calendar {
+    position: relative;
+    display: flex;
+}
+.video-list-container {
+    position: relative;
+    display: flex;
+}
+.other-info-container {
+    display: flex;
+    
 
+}
+.other-info-container-hidden {
+    display: none !important;
+    
 
-
+}
 .calendar-container {
-	background: #fff;
-	width: 450px;
-	border-radius: 10px;
-	box-shadow: 0 15px 40px rgba(0, 0, 0, 0.12);
-}
-
-.calendar-container header {
-	display: flex;
-	align-items: center;
-	padding: 25px 30px 10px;
-	justify-content: space-between;
-}
-
-header .calendar-navigation {
-	display: flex;
-}
-
-header .calendar-navigation span {
-	height: 38px;
-	width: 38px;
-	margin: 0 1px;
-	cursor: pointer;
-	text-align: center;
-	line-height: 38px;
-	border-radius: 50%;
-	user-select: none;
-	color: #aeabab;
-	font-size: 1.9rem;
-}
-
-.calendar-navigation span:last-child {
-	margin-right: -10px;
-}
-
-header .calendar-navigation span:hover {
-	background: #f2f2f2;
-}
-
-header .calendar-current-date {
-	font-weight: 500;
-	font-size: 1.45rem;
-}
-
-.calendar-body {
-	padding: 20px;
-}
-
-.calendar-body ul {
-	list-style: none;
-	flex-wrap: wrap;
-	display: flex;
-	text-align: center;
-}
-
-.calendar-body .calendar-dates {
-	margin-bottom: 20px;
-}
-
-.calendar-body li {
-	width: calc(100% / 7);
-	font-size: 1.07rem;
-	color: #414141;
-}
-
-.calendar-body .calendar-weekdays li {
-	cursor: default;
-	font-weight: 500;
-}
-
-.calendar-body .calendar-dates li {
-	margin-top: 30px;
-	position: relative;
-	z-index: 1;
-	cursor: pointer;
-}
-
-.calendar-dates li.inactive {
-	color: #aaa;
-}
-
-.calendar-dates li.active {
-	color: #fff;
-}
-
-.calendar-dates li::before {
-	position: absolute;
-	content: "";
-	z-index: -1;
-	top: 50%;
-	left: 50%;
-	width: 40px;
-	height: 40px;
-	border-radius: 50%;
-	transform: translate(-50%, -50%);
-}
-
-.calendar-dates li.active::before {
-	background: #6332c5;
-}
-
-.calendar-dates li:not(.active):hover::before {
-	background: #e4e1e1;
-}
-
-
-</style>
-<style>
-
-.grid-container {
-  display: grid;
-  grid-template-columns: repeat(8,auto);
-  background-color: #eff4f8;
-  padding: 10px;
-  font-family: tahoma;
-  font-size: 0.875em;
-}
-.grid-item {
-  background-color: rgba(252, 253, 253, 0.8);
-  border: 1px solid rgba(0, 0, 0, 0.8);
-  padding: 20px;
-  font-size: 15px;
-  text-align: center;
-}
-.grid-item-hover {
-  background-color: rgba(255, 181, 96, 0.8);
-  cursor: pointer;
-  border: 1px solid rgba(0, 0, 0, 0.8);
-  padding: 20px;
-  font-size: 15px;
-  text-align: center;  
-}
-.grid-item-play {
-  background-color: rgba(255, 181, 96, 0.8);
-  border: 1px solid rgba(0, 0, 0, 0.8);
-  padding: 20px;
-  font-size: 15px;
-  text-align: center;  
-}
-.grid-item-play:hover {
-  background-color: rgba(255, 181, 96, 0.8);
-  cursor: pointer;
-  border: 1px solid rgba(0, 0, 0, 0.8);
-  padding: 20px;
-  font-size: 15px;
-  text-align: center;  
-}
-
-</style>
-<div class="w3-container">
+    display: grid;
+    grid-template-columns: repeat(7,50px);
+    border: 1px solid #000000;
+    border-radius: 10px;
+    grid-gap: 3px;
+    width: 735px;
+    justify-content: center;
+    padding: 5px;
     
-    <div class="w3-bar w3-black">
-      <button class="w3-bar-item w3-button tablink " onclick="openCity(event,'props')">Saved Videos</button>
-      <button class="w3-bar-item w3-button tablink" onclick="openCity(event,'dfs')">Live Stream</button>
-      <button class="w3-bar-item w3-button tablink " onclick="openCity(event,'nba_ai_similarity')">Other Info</button>
-    </div>
-</div>
-<script>
-    function openCity(evt, pagename) {
-      window.location = "/" + pagename;
-    }
-    </script>
-<div id="videogrid" style="position:-webkit-sticky">
-<video id="video_play_area" width="640" height="360" controls></video>
+}
+.calendar-month-head {
+    grid-column: 1 / 6;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 20px;
+    font-weight: bold;
+    text-align: center;
+    border-bottom: 1px solid #CCCCCC;
 
-</div>
+}
+.calendar-week-head {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 15px;
+    font-weight: bold;
+    text-align: center;
 
+}
+.calendar-week-head-nav {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 15px;
+    font-weight: bold;
+    text-align: center;
+    cursor: pointer;
 
-<!-- Calendar Start -->
-<!-- Code from https://www.geeksforgeeks.org/how-to-design-a-simple-calendar-using-javascript/ -->
+}
+.calendar-cell {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 13px;
+    text-align: center;
+    height: 50px;
+    border: 1px solid #CCCCCC;
+    border-radius: 5px;
 
-<div class="calendar-container">
-    <header class="calendar-header">
-        <p class="calendar-current-date"></p>
-        <div class="calendar-navigation">
-            <span id="calendar-prev"
-                  class="material-symbols-rounded">
-                chevron_left
-            </span>
-            <span id="calendar-next"
-                  class="material-symbols-rounded">
-                chevron_right
-            </span>
+}
+.calendar-cell-non-current {
+    color: #AAAAAA;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 13px;
+    text-align: center;
+    height: 50px;
+    border: 1px solid #CCCCCC;
+    border-radius: 5px;
+
+}
+.calendar-cell-curr-day {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 13px;
+    text-align: center;
+    height: 50px;
+    border: 1px solid #CCCCCC;
+    border-radius: 5px;
+    background-color: rgb(139, 21, 249);
+    color: #ffffff;
+    font-weight: bold;
+
+}
+.calendar-cell-selected-day {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 13px;
+    text-align: center;
+    height: 50px;
+    border: 1px solid #CCCCCC;
+    border-radius: 5px;
+    background-color: rgb(66, 201, 255);
+    color: #ffffff;
+    font-weight: bold;
+
+}
+.calendar-cell-grid {
+    display: grid;
+    grid-template-columns: auto;
+    border: 1px solid #2a2a2a;
+    cursor: pointer;
+    
+    
+
+}
+.calendar-cell-grid-header {
+    text-align: center;
+    background-color: rgb(255, 161, 61);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 13px;
+    font-weight: bold;
+    border: 1px solid #2a2a2a;
+    border-radius: 5px;
+    grid-gap: 2px;
+    height: 50px;
+    text-align: center;
+    
+}
+.calendar-cell-grid-cell {
+    text-align: center;
+    background-color: rgb(255, 255, 255);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 13px;
+    border-radius: 5px;
+    font-weight: normal ;
+    height: 25px;
+    text-align: center;
+    cursor: pointer;
+}
+.calendar-cell-grid-cell-currday {
+    text-align: center;
+    cursor: pointer;
+
+}
+.calendar-cell-grid-cell-selectedday {
+    text-align: center;
+    cursor: pointer;
+
+}
+.hour-grid {
+    display: grid;
+    grid-template-columns: repeat(13,54px);
+    grid-gap: 2px;
+    border: 2px solid #9b9898;
+    width: 725px;
+    border-radius: 5px;
+    padding: 10px;
+}
+.hour-grid-bold {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    border: 1px solid rgb(95, 95, 95);
+    text-align: center;
+    background-color: #AAAAAA;
+    font-size: 26px;
+    font-weight: bold;
+
+}
+.hour-grid-cell {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    border-bottom: 1px solid rgb(32, 32, 32)f;
+    text-align: center;
+    font-size: 18px;
+    background-color: rgb(217, 218, 218);
+    height:60px;
+    cursor: pointer;
+
+}
+.hour-grid-cell-selected {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    border-bottom: 1px solid rgb(32, 32, 32)f;
+    text-align: center;
+    font-size: 18px;
+    background-color: rgb(255, 151, 128);
+    height:60px;
+    cursor: pointer;
+
+}
+.video-list-main {
+    display: grid;
+    grid-template-columns: 100px auto;
+    grid-gap: 5px;
+    width: 725px;
+    padding: 10px;
+    border-radius: 5px;
+    border: 2px solid #9b9898;
+    height: 500px;
+    overflow: scroll;
+    overflow-x: hidden;
+
+}
+.video-list-time {
+    background-color: rgb(185, 183, 183);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    border-bottom: 1px solid #ffffff;
+
+}
+.video-list-content {
+    background-color: rgb(255, 253, 253);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    border-bottom: 1px solid rgb(185, 183, 183);
+
+}
+.video-list-content-grid {
+    display: grid;
+    grid-template-columns: 50px 100px 60px 60px auto;
+}
+.video-list-content-item {
+    border-bottom: 1px solid #AAAAAA;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 12px;
+
+}
+.video-list-content-item:hover {
+    border-bottom: 1px solid #AAAAAA;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 12px;
+    color: red;
+    cursor: pointer;
+
+}
+
+</style>
+<body>
+    <div class="top_menu_parent">
+        <div class="top_menu">
+            <div id="menu_recorded_videos" class="menu_cell cell-red"  onclick="changeMenu('menu_recorded_videos')">Recorded Videos</div>
+            <div id="menu_live" class="menu_cell" onclick="changeMenu('menu_live')">Live Stream</div>
+            <div id="menu_info" class="menu_cell" onclick="changeMenu('menu_other_info')">Other Info</div>
         </div>
-    </header>
-
-    <div class="calendar-body">
-        <ul class="calendar-weekdays">
-            <li>Sun</li>
-            <li>Mon</li>
-            <li>Tue</li>
-            <li>Wed</li>
-            <li>Thu</li>
-            <li>Fri</li>
-            <li>Sat</li>
-        </ul>
-        <ul class="calendar-dates"></ul>
+    
     </div>
+<script>
+    var activeMenuId = "menu_recorded_videos"
+    function hideLiveContent() {
+
+
+    }
+    function showLiveContent() {
+        hideOtherInfoContent();
+        hideRecordedVideoContent();
+
+    }
+    function showRecordedVideoContent() {
+        // Hide Calendar
+            var calendar_list = d3.select("#calendar");
+            calendar_list.attr("class","calendar");            
+        // show video list
+            var video_list_container = d3.select("#video_list_container");
+            video_list_container.attr("class","video-list-container");           
+            
+            hideOtherInfoContent();
+            hideLiveContent();
+
+
+        
+    }
+    function hideRecordedVideoContent() {
+        var calendar_list = d3.select("#calendar");
+        calendar_list.attr("class","calendar-hidden");
+        var video_list_container = d3.select("#video_list_container");
+        video_list_container.attr("class","video-list-container-hidden");
+        
+    }
+    function showOtherInfoContent() {
+        hideLiveContent();
+        hideRecordedVideoContent();
+        var other_info = d3.select("#other_info_container");
+        other_info.attr("class","other-info-container");
+
+
+    }
+    function hideOtherInfoContent() {
+                // hide other info
+        var other_info = d3.select("#other_info_container");
+        other_info.attr("class","other-info-container-hidden");
+
+    }
+    function changeMenu(menuId) {
+        active_menu = d3.select("#" + activeMenuId);
+        active_menu.attr("class","menu_cell");
+        curr_menu = d3.select("#" + menuId);
+        curr_menu.attr("class","menu_cell cell-red");
+        activeMenuId = menuId ;
+
+        if(menuId == "menu_live") {
+
+            showLiveContent();
+            var video_area =document.getElementById("video_play_area");
+
+
+            var hls = new Hls({ debug: false});
+            var random_var = Math.random().toString();
+            hls.loadSource("http://192.168.1.23/surveillance/static/stream/playlist.m3u8?"+random_var);
+            hls.attachMedia(video_area);
+            
+            hls.on(Hls.Events.MEDIA_ATTACHED, function () {
+                video_area.muted = true;
+                video_area.play();
+            });
+
+        } else if(menuId == "menu_recorded_videos") {
+            var video = d3.select("#video_play_area")
+            video.remove();
+            var video_container = d3.select("#video_play");
+            video_container.append("video").attr("width","735").attr("height","360").attr("id","video_play_area").attr("controls","true").attr("autoplay","true")
+            showRecordedVideoContent()
+
+            
+
+        } else if(menuId == "menu_other_info") {
+            showOtherInfoContent();
+        }
+
+    }
+
+</script>    
+<div class="main_layout">
+    <div id="video_play" class="video_play">
+        <video id="video_play_area" width="735" height="360" controls></video>
+    </div>
+    <div id="calendar" class="calendar">
+    <div id="calendar_container" class="calendar-container">
+        <div class="calendar-month-head">January 2024</div>
+        <div class="calendar-week-head">Prev</div>
+        <div class="calendar-week-head">Next</div>
+        <div class="calendar-week-head">Sun</div>
+        <div class="calendar-week-head">Mon</div>
+        <div class="calendar-week-head">Tue</div>
+        <div class="calendar-week-head">Wed</div>
+        <div class="calendar-week-head">Thur</div>
+        <div class="calendar-week-head">Fri</div>
+        <div class="calendar-week-head">Sat</div>
+    </div>
+    </div>
+    <div id="video_list_container" class="video-list-container"><div id="video_list_main"></div></div>
+    <div id="other_info_container" class="other-info-container">Other info</div>
 </div>
 
-<!-- Calendar End-->
 
+</body>
 
-<div id="videotable" style="width:1000px; height: 500px; overflow-y: auto; overflow-x: hidden;" ></div>
 <script>
-elements = [];
-var headers = {
-                                "file_date": "Date",
-                                "filename": "File Name",
-                                "file_size": "File Size",
-                                "title": "Title",
-                                "duration": "Duration",
-                                "file_format": "File Format",
-                                "comment": "Comment"
 
-                        };
+const months = [
+	"January",
+	"February",
+	"March",
+	"April",
+	"May",
+	"June",
+	"July",
+	"August",
+	"September",
+	"October",
+	"November",
+	"December"
+];
+const weekName = ["Sun", "Mon", "Tue", "Wed", "Thu","Fri", "Sat"];
 
-function cellHover(id) {
-    Object.entries(headers).forEach(([key,value]) => {
-        var fd1 = d3.select("#" + key + "_" + id);
-        fd1.attr("class","grid-item-hover")
-        console.log(id);
+// Array of month names
+let param_date = new Date();
+let param_year = param_date.getFullYear();
+let param_month = param_date.getMonth();
+let param_dom = param_date.getDate();
+let curr_hour = param_date.getHours();
 
-    });
 
+function decreaseMonth() {
+    
+    param_year = new Date(param_year, param_month - 1, 1).getFullYear();
+    param_month = new Date(param_year, param_month - 1, 1).getMonth();
+    createCalendar(param_year, param_month)
 }
-function cellHoverOut(id) {
-    Object.entries(headers).forEach(([key,value]) => {
-        var fd1 = d3.select("#" + key + "_" + id);
-        fd1.attr("class","grid-item")
-
-    })
-
-}
-function playVideo(filename) {
-    var vid = document.getElementById("video_play_area");
-    vid.src = filename;
-    vid.play();
-    console.log(filename)
-}
-function getVideoList() {
-
-    d3.json("/surveillance/list_videos").then( function(element) {
-                    elements = element;
-                }).then(function(element) { refreshList(); });
-
+function increaseMonth() {
+    param_year = new Date(param_year, param_month + 1, 1).getFullYear();
+    param_month = new Date(param_year, param_month + 1, 1).getMonth();
+    createCalendar(param_year, param_month)
+    
 }
 
-        function refreshList() {
-                var videogrid = d3.select("#videotable");
-                var videogrid_container = videogrid.append("div").attr("class","grid-container");
-                videogrid_container.append("div").attr('class','grid-item').text("Action")
-                Object.entries(headers).forEach(([key, value]) => {
-                    videogrid_container.append("div").attr('class','grid-item').text(value)
 
-                })
-                index = 0;
-                elements.forEach(elem => {
-                    var ep = videogrid_container.append("div").attr("class","grid-item-play").attr("id","file_date_" + index).text("Play");
-                    ep.on("click",function(d,i) {playVideo("/static/recorded_videos/" + elem["filename"])})
-                    var e1 = videogrid_container.append("div").attr("class","grid-item").text(elem["file_date"]);
-                        // e1.on('mouseover',function(d,i) { cellHover("file_date_" + index);})
-                        // e1.on('mouseout',function(d,i) { cellHoverOut("file_date_" + index);})
-                        var e2 = videogrid_container.append("div").attr("class","grid-item").attr("id","filename_" + index).text(elem["filename"]);
-                        // e2.on('mouseover',function(d,i) { cellHover(index);})
-                        // e2.on('mouseout',function(d,i) { cellHoverOut(index);})
-                        var e3 = videogrid_container.append("div").attr("class","grid-item").attr("id","file_size_" + index).text((parseFloat(elem["file_size"])/(1024*1024)).toFixed(3) + " MB");
-                        // e3.on('mouseover',function(d,i) { cellHover(index);})
-                        // e3.on('mouseout',function(d,i) { cellHoverOut(index);})
-                        var e4 = videogrid_container.append("div").attr("class","grid-item").attr("id","title_" + index).text(elem["title"]);
-                        // e4.on('mouseover',function(d,i) { cellHover(index);})
-                        // e4.on('mouseout',function(d,i) { cellHoverOut(index);})
-                        var e5 = videogrid_container.append("div").attr("class","grid-item").attr("id","duration_" + index).text(parseFloat(elem["duration"]).toFixed(2));
-                        // e5.on('mouseover',function(d,i) { cellHover(index);})
-                        // e5.on('mouseout',function(d,i) { cellHoverOut(index);})
-                        var e6 = videogrid_container.append("div").attr("class","grid-item").attr("id","file_format_" + index).text(elem["file_format"]);
-                        // e6.on('mouseover',function(d,i) { cellHover(index);})
-                        // e6.on('mouseout',function(d,i) { cellHoverOut(index);})
-                        var e7 = videogrid_container.append("div").attr("class","grid-item").attr("id","comment_" + index).text(elem["comment"]);
-                        // e7.on('mouseover',function(d,i) { cellHover(index);})
-                        // e7.on('mouseout',function(d,i) { cellHoverOut(index);})
-                        // index++;
-                });
-                }
-getVideoList();
-</script>
-<script>
-    let date = new Date();
-    let year = date.getFullYear();
-    let month = date.getMonth();
-    
-    const day = document.querySelector(".calendar-dates");
-    
-    const currdate = document.querySelector(".calendar-current-date");
-    
-    const prenexIcons = document.querySelectorAll(".calendar-navigation span");
-    
-    // Array of month names
-    const months = [
-        "January",
-        "February",
-        "March",
-        "April",
-        "May",
-        "June",
-        "July",
-        "August",
-        "September",
-        "October",
-        "November",
-        "December"
-    ];
-    
-    // Function to generate the calendar
-    const manipulate = () => {
-    
+var videos_month = {}
+var videos_hour = {}
+    var videos = {
+        "0": {
+            "0": [{"date":"2024-01-18 14:01:00", "filename": "abc.mp3", "title": "title1","file_size": 1000, "duration": "100","comment": "Car is travelling west"}, {"filename": "abc.mp3", "title": "title1","file_size": 1000, "duration": "100","comment": "Car is travelling west"}],
+            "5": [{"date":"2024-01-18 14:01:00", "filename": "abc.mp3", "title": "title1","file_size": 1000, "duration": "100","comment": "Car is travelling west"}, {"filename": "abc.mp3", "title": "title1","file_size": 1000, "duration": "100","comment": "Car is travelling west"}],
+            "10": [{"date":"2024-01-18 14:01:00", "filename": "abc.mp3", "title": "title1","file_size": 1000, "duration": "100","comment": "Car is travelling west"}, {"filename": "abc.mp3", "title": "title1","file_size": 1000, "duration": "100","comment": "Car is travelling west"}]
+            },
+        "1": {"0": [{"date":"2024-01-18 14:01:00", "filename": "abc.mp3", "title": "title1","file_size": 1000, "duration": "100","comment": "Car is travelling west"}, {"filename": "abc.mp3", "title": "title1","file_size": 1000, "duration": "100","comment": "Car is travelling west"}]},
+        "9": {"0": [{"date":"2024-01-18 14:01:00", "filename": "abc.mp3", "title": "title1","file_size": 1000, "duration": "100","comment": "Car is travelling west"}, {"filename": "abc.mp3", "title": "title1","file_size": 1000, "duration": "100","comment": "Car is travelling west"}]}
+    }
+
+
+    // get main calendar container
+    function createCalendar(year, month) {
+        console.log(videos_month);
+        let curr_date = new Date();
+        
+
         // Get the first day of the month
         let dayone = new Date(year, month, 1).getDay();
-    
+
+        let date_one = new Date(year, month, 1);
+        let monthName = months[month]
+
         // Get the last date of the month
         let lastdate = new Date(year, month + 1, 0).getDate();
-    
+
         // Get the day of the last date of the month
         let dayend = new Date(year, month, lastdate).getDay();
-    
+
         // Get the last date of the previous month
         let monthlastdate = new Date(year, month, 0).getDate();
-    
-        // Variable to store the generated calendar HTML
-        let lit = "";
-    
-        // Loop to add the last dates of the previous month
-        for (let i = dayone; i > 0; i--) {
-            lit +=
-                `<li class="inactive">${monthlastdate - i + 1}</li>`;
+        var calendar_parent = d3.select("#calendar")
+        var calendar_container = d3.select("#calendar_container")
+        calendar_container.remove()
+
+        calendar_container = calendar_parent.append("div").attr("class","calendar-container").attr("id","calendar_container")
+
+        // Add Month
+        calendar_container.append("div").attr("class","calendar-month-head").text(monthName + " " + year)
+        var prev_button = calendar_container.append("div").attr("class","calendar-week-head-nav").text("Prev")
+        var next_button = calendar_container.append("div").attr("class","calendar-week-head-nav").text("Next")
+        prev_button.on("click", function(d) {
+            decreaseMonth();
+        })
+        next_button.on("click", function(d) {
+            increaseMonth();
+        })
+        for(var i=0; i<weekName.length; i++) {
+            calendar_container.append("div").attr("class","calendar-week-head").text(weekName[i])
+        }
+
+
+        cell_no = dayone % 7 ;
+        new_date = date_one;
+        
+        
+        // Create Calendar Header
+        new_date.setDate(new_date.getDate() - cell_no - 1)
+
+        // create previous month days
+        for(var i=0; i<cell_no; i++) {
+            new_date.setDate(new_date.getDate() + 1 )
+            
+            day_num = new_date.getDate();
+            calendar_container.append("div").attr("class","calendar-cell-non-current").text(day_num);
+        }
+
+        // create current month - first row only
+        for(var i=0; i<(7- cell_no); i++) {
+            new_date.setDate(new_date.getDate() + 1 )
+            day_num = new_date.getDate();
+            var div_day = calendar_container.append("div")
+            var cell_grid = div_day.append("div").attr("class","calendar-cell-grid-header").text(day_num)
+
+            date_str = new_date.getFullYear().toString() + "-"+ (new_date.getMonth()+1).toString().padStart(2,"0") + "-"+ new_date.getDate().toString().padStart(2,"0")             
+            total_videos = videos_month[date_str];
+            total_videos = (total_videos == null) ? 0 : total_videos;
+            var cell_grid_total = cell_grid.append("div").attr("class","calendar-cell-grid-cell").text(total_videos);
+            cell_grid_total.attr("onclick","updateParameters(" + new_date.getFullYear().toString() + "," + new_date.getMonth() + "," +  new_date.getDate() + ")")
+        }
+
+        // create current month for rest of days - 4 rows - will over flow to next month
+        for(var x=0; x<=4;x++) {
+            for(y=0;y<7;y++) {
+                new_date.setDate(new_date.getDate() + 1 )
+                
+                day_num = new_date.getDate();
+                var cell_style=""
+                var cell_style_2 = "calendar-cell-grid-cell"
+                if(new_date.getDate() == curr_date.getDate() && 
+                        new_date.getMonth() == curr_date.getMonth() && 
+                        new_date.getFullYear() == curr_date.getFullYear()) {
+                    cell_style = "calendar-cell-curr-day";
+                    cell_style_2 = "calendar-cell-grid-cell-currday";
+                } else {
+                    if(new_date.getDate() == param_dom && 
+                        new_date.getMonth() == param_month && 
+                        new_date.getFullYear() == param_year) {
+                    cell_style = "calendar-cell-selected-day";
+                    cell_style_2 = "calendar-cell-grid-cell-selectedday";
+                        }
+
+                    if(month != new_date.getMonth()) {
+                        cell_style= "calendar-cell-non-current";
+                    } else {
+                        cell_style= "calendar-cell-grid-header";
+                    }
+                    
+                }
+
+                // calendar_container.append("div").attr("class",cell_style).text(day_num);
+                var div_day = calendar_container.append("div").attr("class",cell_style)
+                //var cell_grid = div_day.append("div").attr("class","calendar-cell-grid-header").text(day_num)
+                var cell_grid = div_day.append("div").text(day_num)
+                date_str = new_date.getFullYear().toString() + "-"+ (new_date.getMonth()+1).toString().padStart(2,"0") + "-"+ new_date.getDate().toString().padStart(2,"0")             
+                total_videos = videos_month[date_str];
+                total_videos = (total_videos == null) ? 0 : total_videos;
+
+                var cell_grid_total = cell_grid.append("div").attr("class",cell_style_2).text(total_videos);
+                cell_grid_total.attr("onclick","updateParameters(" + new_date.getFullYear().toString() + "," + new_date.getMonth() + "," +  new_date.getDate() + ")")
+
+            }
+
         }
     
-        // Loop to add the dates of the current month
-        for (let i = 1; i <= lastdate; i++) {
-    
-            // Check if the current date is today
-            let isToday = i === date.getDate()
-                && month === new Date().getMonth()
-                && year === new Date().getFullYear()
-                ? "active"
-                : "";
-            lit += `<li class="${isToday}">${i}</li>`;
-        }
-    
-        // Loop to add the first dates of the next month
-        for (let i = dayend; i < 6; i++) {
-            lit += `<li class="inactive">${i - dayend + 1}</li>`
-        }
-    
-        // Update the text of the current date element 
-        // with the formatted current month and year
-        currdate.innerText = `${months[month]} ${year}`;
-    
-        // update the HTML of the dates element 
-        // with the generated calendar
-        day.innerHTML = lit;
     }
-    
-    manipulate();
-    
-    // Attach a click event listener to each icon
-    prenexIcons.forEach(icon => {
-    
-        // When an icon is clicked
-        icon.addEventListener("click", () => {
-    
-            // Check if the icon is "calendar-prev"
-            // or "calendar-next"
-            month = icon.id === "calendar-prev" ? month - 1 : month + 1;
-    
-            // Check if the month is out of range
-            if (month < 0 || month > 11) {
-    
-                // Set the date to the first day of the 
-                // month with the new year
-                date = new Date(year, month, new Date().getDate());
-    
-                // Set the year to the new year
-                year = date.getFullYear();
-    
-                // Set the month to the new month
-                month = date.getMonth();
+
+    function createVideoList(hour) {
+
+        curr_hour = hour
+        var video_list_container = d3.select("#video_list_container");
+        var video_main = d3.select("#video_list_main");;
+        video_main.remove();
+
+        video_main = video_list_container.append("div").attr("id","video_list_main")
+        var hour_grid = video_main.append("div").attr("class","hour-grid")
+        hour_grid.append("div").attr("class","hour-grid-bold").text("AM")
+        timegrid_arr = []
+        for(var i=0;i<12;i++) {
+            var timegrid = hour_grid.append("div").attr("onclick","createVideoList(" + i + ")")
+            var hour_list = videos[i.toString()]
+            var total_videos = videos_hour[i.toString().padStart(2,"0")];
+            total_videos = (total_videos == null) ? 0 : total_videos;
+            // if(hour_list != null) {
+            //     Object.entries(hour_list).forEach(element => {
+            //         total_videos += element.length
+            //     })
+
+            // }
+
+            if(i == hour) {
+                timegrid.attr("class","hour-grid-cell-selected").html(i.toString().padStart(2,"0") + "<br>" + ((total_videos == 0) ? "-" : total_videos.toString()))
+                
+            } else {
+                timegrid.attr("class","hour-grid-cell").html(i.toString().padStart(2,"0") + "<br>" + ((total_videos == 0) ? "-" : total_videos.toString()))
             }
-    
-            else {
-    
-                // Set the date to the current date
-                date = new Date();
+            //timegrid.on("click", function(d) { createVideoList(eval(i))});
+            //timegrid_arr.push(timegrid);
+            
+        }
+        hour_grid.append("div").attr("class","hour-grid-bold").text("PM")
+        for(var i=12;i<24;i++) {
+            var hour_list = videos[i.toString()]
+//            var total_videos = 0;
+            var total_videos = videos_hour[i.toString().padStart(2,"0")];
+            total_videos = (total_videos == null) ? 0 : total_videos;
+
+            // if(hour_list != null) {
+            //     Object.entries(hour_list).forEach(element => {
+            //         total_videos += element.length
+            //     })
+
+            // }
+
+            var timegrid = hour_grid.append("div").attr("onclick","createVideoList(" + i + ")")
+            if(i == hour ) {
+                timegrid.attr("class","hour-grid-cell-selected").html(i.toString() + "<br>" + ((total_videos == 0) ? "-" : total_videos.toString()))
+            } else {
+                timegrid.attr("class","hour-grid-cell").html(i.toString() + "<br>" +( (total_videos == 0) ? "-" : total_videos.toString()))
             }
-    
-            // Call the manipulate function to 
-            // update the calendar display
-            manipulate();
-        });
-    });
-    
-    
-    
-        </script>
-    
-</body>
+            //timegrid.on("click", function(d) { createVideoList(eval(i))});
+            //timegrid_arr.push(timegrid);
+            
+        }
+        // for(var i=0; i<timegrid_arr.length; i++) {
+        //     timegrid_arr[i].on("click",function(d) { createVideoList(i.toString()); })
+        // }
+            refreshMins(param_year, param_month, param_dom, curr_hour);
+
+        
+
+    }
+    function refreshCalendar() {
+        url = "/surveillance/list_videos_by_day?year" + param_year + "&month" + param_month + "&day" + param_dom
+        
+        d3.json(url).then(function(element) {
+            videos_month = element
+            createCalendar(param_year, param_month);
+            refreshHour();
+            
+            
+        })
+
+    }
+    function refreshHour() {
+        
+        url = "/surveillance/list_videos_by_day_hour?year=" + param_year + "&month=" + (param_month+1) + "&day=" + param_dom
+        d3.json(url).then(function(element) {
+            videos_hour= element
+            //createHourlyList(param_year, param_month, day);
+            console.log(videos_hour);
+            createVideoList(curr_hour);
+            
+        })
+    }
+
+    function refreshMins(param_year, param_month, param_dom, curr_hour) {
+        url = "/surveillance/list_videos_by_hour_mins?year=" + param_year + "&month=" + (param_month+1) + "&day=" + param_dom + "&hour=" + curr_hour
+        d3.json(url).then(function(element) {
+            videos= element
+            //createHourlyList(param_year, param_month, day);
+            
+            createVideoListByMin(curr_hour);
+            
+        })
+
+    }
+    function createVideoListByMin() {
+
+
+        var video_main = d3.select("#video_list_main")
+        var video_list = video_main.append("div").attr("class", "video-list-main")
+        video_list.append("div").attr("class","video-list-time").text("Time Slot");
+        var title_item_div = video_list.append("div").attr("class","video-list-content-grid")
+        title_item_div.append("div").attr("class","video-list-content-item").text("Time")
+        title_item_div.append("div").attr("class","video-list-content-item").text("Title")
+        title_item_div.append("div").attr("class","video-list-content-item").text("Duration")
+        title_item_div.append("div").attr("class","video-list-content-item").text("Size")
+        title_item_div.append("div").attr("class","video-list-content-item").text("Comment")
+
+        
+        for(var i=0; i<60; i+=5) {
+            
+            video_list.append("div").attr("class","video-list-time").text(parseInt(curr_hour).toString().padStart(2,"0") + ":" + i.toString().padStart(2,"0") );
+            hour_list = videos[i];
+            if(hour_list == null) {
+                video_list.append("div").attr("class","video-list-content").text(" ")
+            } else {
+                video_items = hour_list
+                if(video_items != null) {
+                    var item_div = video_list.append("div").attr("class","video-list-content-grid")
+                    video_items.forEach(element => {
+                        var e1 = item_div.append("div").attr("class","video-list-content-item").text(element["time"])
+                        var e2 = item_div.append("div").attr("class","video-list-content-item").text(element["title"])
+                        var e3 = item_div.append("div").attr("class","video-list-content-item").text(element["duration"])
+                        var e4 = item_div.append("div").attr("class","video-list-content-item").text(element["file_size"])
+                        var e5 = item_div.append("div").attr("class","video-list-content-item").text(element["comment"])
+                        e1.attr("onclick","playVideo('/surveillance/static/recorded_videos/" + element['filename'] +"')")
+                        e2.attr("onclick","playVideo('/surveillance/static/recorded_videos/" + element['filename'] +"')")
+                        e3.attr("onclick","playVideo('/surveillance/static/recorded_videos/" + element['filename'] +"')")
+                        e4.attr("onclick","playVideo('/surveillance/static/recorded_videos/" + element['filename'] +"')")
+                        e5.attr("onclick","playVideo('/surveillance/static/recorded_videos/" + element['filename'] +"')")
+                    })
+                    
+                } else {
+                    video_list.append("div").attr("class","video-list-content").text(" ")
+                }
+            }
+            
+
+        } 
+
+        
+    }
+    function updateParameters(year, month, day) {
+        param_year = year;
+        param_month = month;
+        param_dom = day;
+        curr_hour = 0;
+        console.log("Updated Params: " + param_year );
+        console.log("Updated Params: " + param_month );
+        console.log("Updated Params: " + param_dom );
+        refreshCalendar();
+
+    }
+    function playVideo(filename) {
+        var vid = document.getElementById("video_play_area");
+        vid.src = filename;
+        vid.play();
+        console.log(filename)
+    }
+    function updateHour(hour) {
+
+    }
+    // createCalendar(param_year,param_month);
+    //createVideoList(curr_hour);
+    refreshCalendar();
+    showRecordedVideoContent();
+
+
+</script>
 </html>
