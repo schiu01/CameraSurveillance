@@ -23,8 +23,24 @@ http_start = False
 class CameraSurveillance:
     def __init__(self):
         """
-            Initialization routine for camera
-            1. Read Configuration File
+            Purpose: 
+                CameraSurveillance Object is the main interface with the camera to retrieve frames
+                and provides the frames to Background Subtraction Module to be processed.
+                It also interfaces with Object Detection and Tracking Modules.
+                The output frames are sent to an rtsp server for further distribution downstream.
+            
+            Notes:
+                Camera Surveillance is driven by configuration file camera_surveillance.config
+                The rtsp url to our source camera is an entry within the config file.
+            
+            Libraries used:
+                OpenCV - for Retrieval of Camera frames and processing of the frames such as resizing.
+                queue - For Queueing of frames for saving into a file via multi-threading - for smoother experience.
+                ffmpeg - to form ffmpeg parameters.
+            
+            run: 
+                The module, after init, is kicked off using "start" function.
+
             
         """
         self.config = None

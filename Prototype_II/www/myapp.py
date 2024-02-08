@@ -4,8 +4,9 @@ import sys
 import cv2
 import json as js
 import subprocess
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
+import hashlib
 
 app = Flask(__name__, static_folder='static')
 
@@ -183,6 +184,13 @@ def list_videos_by_month_by_day():
         in_month = in_month.zfill(2)
         in_day = in_day.zfill(2)
 
+    prior_year = "0"
+    prior_month = "00"
+    curr_month = datetime.strptime(f"{in_year}-{in_month}-01","%Y-%m-%d")
+    prior_month_dt = curr_month + timedelta(days=-2)
+    prior_month_str = prior_month_dt.strftime("%Y-%m")
+    prior_year, prior_month = prior_month_str.split("-")
+
 
     videos_month = {}
     for base_dir, dirs, files in os.walk("/opt/surveillance/recorded_videos/"):
@@ -195,7 +203,7 @@ def list_videos_by_month_by_day():
                 file_mm = file_dated[4:6]
                 file_dd = file_dated[6:8]
                 file_date_str = f"{file_yy}-{file_mm}-{file_dd}"
-                if(not (file_yy == in_year and file_mm == in_month)):
+                if(not ((file_yy == in_year and file_mm == in_month) or (file_yy == prior_year and file_mm == prior_month) )):
                     continue
 
 
@@ -206,42 +214,18 @@ def list_videos_by_month_by_day():
 
     return js.dumps(videos_month)
 
-    # files_query = f"raw_videos_{in_year}{in_month}*.mp4"
-    # process = subprocess.Popen([f"/opt/surveillance/www/list_files.sh {files_query}"],stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    # out, err = process.communicate()
+@app.route("/admin_login")
+def admin_login():
+    return render_template("admin_login.html", data="")
 
-    # metadata = []
-    # #fd = open("/opt/surveillance/www/myformat.json","r")
-    # #files_j = js.load(fd)
-    # #fd.close()
-    # files_j = js.loads(out)
-    # for f in files_j["files"]:
-    #     filename = f["format"]["filename"].split("/")[-1]
-    #     filename_first,ext = filename.split(".")
-    #     filename_attr = filename_first.split("_")
-    #     timestamp = filename_attr[-1]
-    #     yy = timestamp[0:4]
-    #     mm = timestamp[4:6]
-    #     dd = timestamp[6:8]
-    #     hh = timestamp[8:10]
-    #     mi = timestamp[10:12]
-    #     ss = timestamp[12:14]
-    #     file_format = f["format"]["format_long_name"]
-    #     duration = f["format"]["duration"]
-    #     file_date = f"{yy}-{mm}-{dd} {hh}:{mi}:{ss}"
 
-    #     bit_rate = f["format"]["bit_rate"]
-    #     file_size = f["format"]["size"]
-    #     title = f["format"]["tags"]["title"].replace("\\\"","")
-    #     comment = None
-    #     if(f["format"].get("tags")):
-    #         comment = f["format"]["tags"].get("comment")
-    #     metadata.append({"filename": filename, "file_date": file_date,
-    #         "file_format": file_format, "duration": duration, "file_size": file_size,"title": title,"comment":comment,
-    #         "bit_rate": bit_rate})
-
-    #return render_template("list_videos.html",files=metadata)   
-    # return js.dumps(videos_month)
-
-#if __name__ == "__main__":
-#    app.run(debug=True, port=5000, host='0.0.0.0')
+@app.route("/admin", methods=["POST"])
+def admin():
+    user = request.form.get("username")
+    md5_pass = request.form.get("md5_pass")
+    md5_value = hashlib.md5(b"admin123").hexdigest()
+    if md5_pass == md5_value:
+        return render_template("admin.html", data=[user, md5_pass])
+    else:
+        return render_template("admin_login.html", data=f"Failed Login User/Password!")
+    

@@ -467,7 +467,6 @@ var videos_hour = {}
 
     // get main calendar container
     function createCalendar(year, month) {
-        console.log(videos_month);
         let curr_date = new Date();
         
 
@@ -531,15 +530,34 @@ var videos_hour = {}
             date_str = new_date.getFullYear().toString() + "-"+ (new_date.getMonth()+1).toString().padStart(2,"0") + "-"+ new_date.getDate().toString().padStart(2,"0")             
             total_videos = videos_month[date_str];
             total_videos = (total_videos == null) ? 0 : total_videos;
-            var cell_grid_total = cell_grid.append("div").attr("class","calendar-cell-grid-cell").text(total_videos);
+
+            var cell_style=""
+            var cell_style_2 = "calendar-cell-grid-cell"
+            if(new_date.getDate() == curr_date.getDate() && 
+                    new_date.getMonth() == curr_date.getMonth() && 
+                    new_date.getFullYear() == curr_date.getFullYear()) {
+                cell_style = "calendar-cell-curr-day";
+                cell_style_2 = "calendar-cell-grid-cell-currday";
+            } else {
+                if(new_date.getDate() == param_dom && 
+                    new_date.getMonth() == param_month && 
+                    new_date.getFullYear() == param_year) {
+                cell_style = "calendar-cell-selected-day";
+                cell_style_2 = "calendar-cell-grid-cell-selectedday";
+                    }
+        
+                }
+
+            var cell_grid_total = cell_grid.append("div").attr("class",cell_style_2).text(total_videos);
             cell_grid_total.attr("onclick","updateParameters(" + new_date.getFullYear().toString() + "," + new_date.getMonth() + "," +  new_date.getDate() + ")")
         }
 
         // create current month for rest of days - 4 rows - will over flow to next month
         for(var x=0; x<=4;x++) {
             for(y=0;y<7;y++) {
+
                 new_date.setDate(new_date.getDate() + 1 )
-                
+                console.log("[" + new_date.getDate().toString() + "|" + param_dom.toString() + "][" + new_date.getMonth().toString() + "|" + param_month.toString() + "][" +new_date.getFullYear().toString() + "|" + param_year.toString()+ "]");
                 day_num = new_date.getDate();
                 var cell_style=""
                 var cell_style_2 = "calendar-cell-grid-cell"
@@ -664,7 +682,6 @@ var videos_hour = {}
         d3.json(url).then(function(element) {
             videos_hour= element
             //createHourlyList(param_year, param_month, day);
-            console.log(videos_hour);
             createVideoList(curr_hour);
             
         })
@@ -733,9 +750,9 @@ var videos_hour = {}
         param_month = month;
         param_dom = day;
         curr_hour = 0;
-        console.log("Updated Params: " + param_year );
-        console.log("Updated Params: " + param_month );
-        console.log("Updated Params: " + param_dom );
+        // console.log("Updated Params: " + param_year );
+        // console.log("Updated Params: " + param_month );
+        // console.log("Updated Params: " + param_dom );
         refreshCalendar();
 
     }
