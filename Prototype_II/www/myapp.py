@@ -1,5 +1,5 @@
-from flask import Flask, render_template, Response, request, stream_with_context
-
+from flask import Flask, render_template, Response, request, stream_with_context, session
+from flask_session import Session
 import sys
 import cv2
 import json as js
@@ -9,6 +9,11 @@ import os
 import hashlib
 
 app = Flask(__name__, static_folder='static')
+
+## Sessions: https://www.geeksforgeeks.org/how-to-use-flask-session-in-python-flask/
+app.config["SESSION_PERMANENT"] = False
+app.config["SESSION_TYPE"] = "filesystem"
+Session(app)
 
 
 cap = cv2.VideoCapture("rtsp://192.168.1.23:8554/surveillance")
@@ -218,6 +223,33 @@ def list_videos_by_month_by_day():
 def admin_login():
     return render_template("admin_login.html", data="")
 
+@app.route("/admin_delete", methods=["POST"])
+def admin_delete():
+    if session.get("name"):
+        if(session.get("name") == "admin"):
+
+            files = request.form.getlist("video_file")
+            delete_result = []
+
+            ## /opt/surveillance/file_delete_queue is provided access to flask_user.
+            fd = open("/opt/surveillance/file_delete_queue/file_delete_queue.list","a")
+            for del_file in files:
+                if(str(del_file).startswith("raw_capture_") and str(del_file).endswith(".mp4")):
+                    try:
+                        fd.write(f"/opt/surveillance/www/recorded_videos/{del_file}\n")
+                        delete_result.append(f"{del_file} - Queued for deletion")
+                    except Exception as e:
+                        delete_result.append(f"{del_file} - Unsuccessful Add to queue - {e}")
+                else:
+                    delete_result.append(f"{del_file} - Unsuccessful")
+
+                    
+            return render_template("admin.html", data={"username": session.get('name'), "message": delete_result})
+        else:
+            return render_template("admin_login.html", data=f"Invalid User")
+    else:
+        return render_template("admin_login.html", data=f"Please Login {session.get('name')}")
+
 
 @app.route("/admin", methods=["POST"])
 def admin():
@@ -225,6 +257,7 @@ def admin():
     md5_pass = request.form.get("md5_pass")
     md5_value = hashlib.md5(b"admin123").hexdigest()
     if md5_pass == md5_value:
+        session["name"] = user
         return render_template("admin.html", data=[user, md5_pass])
     else:
         return render_template("admin_login.html", data=f"Failed Login User/Password!")

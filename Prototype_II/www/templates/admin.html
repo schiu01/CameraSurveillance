@@ -273,7 +273,7 @@
 }
 .video-list-content-grid {
     display: grid;
-    grid-template-columns: 50px 100px 60px 60px auto;
+    grid-template-columns: 50px 50px 100px 60px 60px auto;
 }
 .video-list-content-item {
     border-bottom: 1px solid #AAAAAA;
@@ -385,11 +385,20 @@
     }
 
 function submitForm() {
-    return false;
+    if(confirm("Press OK to confirm DELETE.")) {
+        return true
+    } else {
+        return false;
+    }
+    
 }
 </script>    
 <div class="main_layout">
-    <div>Logged in as {{ data }}</div>
+    <div>Logged in as {{ data['username'] }}</div>
+    <P>{% for message in data['message'] %}
+        {{ message }}<br>
+    {%endfor%}
+    </P>
     <div id="calendar" class="calendar">
     <div id="calendar_container" class="calendar-container">
         <div class="calendar-month-head">January 2024</div>
@@ -404,10 +413,13 @@ function submitForm() {
         <div class="calendar-week-head">Sat</div>
     </div>
     </div>
-    <form action="admin" onsubmit="return submitForm()" id="formdata" method="post">
+    <form action="admin_delete" onsubmit="return submitForm()" id="formdata" method="post">
     <div id="video_list_container" class="video-list-container"><div id="video_list_main"></div></div>
     <div id="other_info_container" class="other-info-container">Other info</div>
-    <input type="submit" value="Delete Files">
+    <div style="justify-items: center;padding:10px">
+        <input type="submit" value="Delete Files">
+    </div>
+    
     </form>
 </div>
 
@@ -707,6 +719,7 @@ var videos_hour = {}
         var video_list = video_main.append("div").attr("class", "video-list-main")
         video_list.append("div").attr("class","video-list-time").text("Time Slot");
         var title_item_div = video_list.append("div").attr("class","video-list-content-grid")
+        title_item_div.append("div").attr("class","video-list-content-item").text("Delete")
         title_item_div.append("div").attr("class","video-list-content-item").text("Time")
         title_item_div.append("div").attr("class","video-list-content-item").text("Title")
         title_item_div.append("div").attr("class","video-list-content-item").text("Duration")
@@ -725,18 +738,14 @@ var videos_hour = {}
                 if(video_items != null) {
                     var item_div = video_list.append("div").attr("class","video-list-content-grid")
                     video_items.forEach(element => {
-                        
+                        var e0 = item_div.append("div").attr("class","video-list-content-item")
+                        e0.append("input").attr("type","checkbox").attr("name","video_file").attr("value",element['filename'])
                         var e1 = item_div.append("div").attr("class","video-list-content-item").text(element["time"])
                         var e2 = item_div.append("div").attr("class","video-list-content-item").text(element["title"])
-                        e2.append("input").attr("type","checkbox").attr("name","video_file")
+                        
                         var e3 = item_div.append("div").attr("class","video-list-content-item").text(element["duration"])
                         var e4 = item_div.append("div").attr("class","video-list-content-item").text(element["file_size"])
                         var e5 = item_div.append("div").attr("class","video-list-content-item").text(element["comment"])
-                        e1.attr("onclick","playVideo('/surveillance/static/recorded_videos/" + element['filename'] +"')")
-                        e2.attr("onclick","playVideo('/surveillance/static/recorded_videos/" + element['filename'] +"')")
-                        e3.attr("onclick","playVideo('/surveillance/static/recorded_videos/" + element['filename'] +"')")
-                        e4.attr("onclick","playVideo('/surveillance/static/recorded_videos/" + element['filename'] +"')")
-                        e5.attr("onclick","playVideo('/surveillance/static/recorded_videos/" + element['filename'] +"')")
                     })
                     
                 } else {

@@ -210,32 +210,16 @@ class CameraSurveillance:
             if(process == None):
                 print("Starting Process...")
                 http_start = False
-                # command = [
-                #     "ffmpeg_g","hwaccel_output_format=cuda", 
-                #     "-i","-",
-                #     "-c:v","h264",
-                #     "-g","64",
-                #     "-f","rtsp",
-                #     "-rtsp_transport","udp",
-                #     "rtsp://0.0.0.0:8554/surveillance"
-                # ]
-                # process = sp.Popen(command, stdin=sp.PIPE, stderr=sp.PIPE)
-
                 process = (
                     ffmpeg
                     .input('pipe:', hwaccel_output_format="cuda", format='rawvideo',codec="rawvideo", pix_fmt='bgr24', s='{}x{}'.format(self.frame_resized["width"], self.frame_resized["height"]))
                     .output(
                         "rtsp://0.0.0.0:8554/surveillance",
-                        #codec = "copy", # use same codecs of the original video
-                        #listen=1, # enables HTTP server
-                        #codec="libx264",
                         codec="h264",
                         pix_fmt="yuv420p",
-                        #preset="ultrafast",
                         rtsp_transport="udp",
                         maxrate="1200k",
                         bufsize="5000k",
-                        #vf="scale=640:360",
                         g="64",
                         probesize="64",
                         f="rtsp"
@@ -253,16 +237,11 @@ class CameraSurveillance:
                         .input('pipe:', hwaccel_output_format="cuda", format='rawvideo',codec="rawvideo", pix_fmt='bgr24', s='{}x{}'.format(self.frame_resized["width"], self.frame_resized["height"]))
                         .output(
                             "rtsp://0.0.0.0:8554/surveillance",
-                            #codec = "copy", # use same codecs of the original video
-                            #listen=1, # enables HTTP server
-                            #codec="libx264",
                             codec="h264",
                             pix_fmt="yuv420p",
-                            #preset="ultrafast",
                             rtsp_transport="udp",
                             maxrate="2400k",
                             bufsize="5000k",
-                            #vf="scale=640:360",
                             g="64",
                             probesize="64",
                             f="rtsp")
