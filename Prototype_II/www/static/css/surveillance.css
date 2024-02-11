@@ -256,6 +256,10 @@
     display: grid;
     grid-template-columns: 50px 100px 60px 60px auto;
 }
+.video-list-content-grid-del {
+    display: grid;
+    grid-template-columns: 30px 50px 100px 60px 60px auto;
+}
 .video-list-content-item {
     border-bottom: 1px solid #AAAAAA;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;

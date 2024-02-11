@@ -60,7 +60,7 @@ function showOtherInfoContent() {
     other_info.attr("class","other-info-container");
 
 
-}]// Menu Control:  Hide Other Info divs.
+}// Menu Control:  Hide Other Info divs.
 function hideOtherInfoContent() {
             // hide other info
     var other_info = d3.select("#other_info_container");
@@ -102,7 +102,7 @@ function changeMenu(menuId) {
         
 
     } else if(menuId == "menu_other_info") {
-        showOtherInfoContent();
+        window.location = "admin_login";
     }
 
 }

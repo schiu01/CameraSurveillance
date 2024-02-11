@@ -14,6 +14,7 @@ import subprocess as sp
 import os
 import ffmpeg
 import threading
+from Notification import ProjectAlert
 c =  threading.Condition()
 process = None
 http_start = False
@@ -68,6 +69,7 @@ class CameraSurveillance:
         self.object_detected_starttime = None
         self.object_detected_endtime = None
         self.video_comments = {}
+        self.video_title = None
 
         ## Record 3 more seconds AFTER object is no longer detected; so if another object comes to scene it continues recording.
         self.record_extra_frame_count = 0 
@@ -97,12 +99,33 @@ class CameraSurveillance:
         ## and another cpu to read from frames and save video if required.
         ## the save video also triggers notification
         self.image_queue = Queue()
+        self.notify_queue = Queue()
         
 
         ## Notification Flag
-        self.notify_users = False
+        self.notify_users = self.config.get("send_notifications")
+        self.alert = ProjectAlert()
+        self.alert_words = self.config["notification_alert_hot_words"]
 
-        
+    def alerting(self):
+        while(not self.camera_stop):
+            try:
+                alert_message = self.notify_queue.get(block=False)
+                subject = alert_message.get("subject")
+                message = alert_message.get("message")
+                message_words = message.split(" ")
+                send_alert = False
+                for m in message_words:
+                    if(m in self.alert_words):
+                        send_alert = True
+                        break
+                if(send_alert):
+                    self.alert.send_email(subject, message)
+            except Exception as e:
+                sleep(10)
+
+    def send_alert_queue(self, object):
+        self.notify_queue.put(object, block=False)
     def start(self):
         """
             Starts the Camera Surveillance system
@@ -114,6 +137,12 @@ class CameraSurveillance:
         th2.start()
         th3 = Thread(name="http_stream", target=self.http_stream)
         th3.start()
+        if(self.notify_users):
+            print("Starting Notifications System...")
+            th4 = Thread(name="alerting", target=self.alerting )
+            th4.start()
+        else:
+            print("Notification System is not active.")
         th1.join()
         th2.join()
 #        th3.join()
@@ -203,7 +232,7 @@ class CameraSurveillance:
                     except Exception as e:
                         print(f"There was an error capturing frame {e}")
     def http_stream(self):
-        while(True):
+        while(not self.camera_stop):
             global http_start
             global process
             
@@ -363,6 +392,7 @@ class CameraSurveillance:
                         '-b:v', '5000k',
                         self.output_file ]
                 self.record_out = sp.Popen(command, stdin=sp.PIPE, stderr=sp.PIPE)
+                self.video_title = str_object_detected
                 # print(resized_frame.shape)
                 # print(f"==> ({self.frame_resized['width']},{self.frame_resized['height']})")
 #             else:
@@ -521,3 +551,4 @@ class CameraSurveillance:
         proc = sp.Popen(command, stdin=sp.PIPE, stderr=sp.PIPE)
         proc.wait()
         os.remove(self.output_file)
+        self.send_alert_queue({"subject": self.video_title, "message": {comment}})

@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 import os
 import hashlib
 
+## Initialise Flask and attach to session object.
 app = Flask(__name__, static_folder='static')
 
 ## Sessions: https://www.geeksforgeeks.org/how-to-use-flask-session-in-python-flask/
@@ -16,12 +17,17 @@ app.config["SESSION_TYPE"] = "filesystem"
 Session(app)
 
 
+
+## Set cap variavble for cv2 video capture from our RTSP Server
+## The rtsp server gets feed from our standalone app running on our server.
+#
 cap = cv2.VideoCapture("rtsp://192.168.1.23:8554/surveillance")
-#cap = cv2.VideoCapture("http://192.168.1.23:8080/")
 connected = True
 
 
-
+## Gen frames goes through frame by frame and sends it back as realtime
+## this is a "backup method" versus HLS - Http Live Streaming option.
+## this method does not support audio.
 def gen_frames():
     try:
         while True:
@@ -39,9 +45,10 @@ def gen_frames():
     except GeneratorExit:
         pass
     
+## main page.
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("recorded_videos.html")
 
 @app.route("/cam")
 def cam():
@@ -79,15 +86,6 @@ def list_video_by_hour_mins():
 
     metadata = []
     files_j = js.loads(out)
-    # var videos = {
-    #     "0": {
-    #         "0": [{"date":"2024-01-18 14:01:00", "filename": "abc.mp3", "title": "title1","file_size": 1000, "duration": "100","comment": "Car is travelling west"}, {"filename": "abc.mp3", "title": "title1","file_size": 1000, "duration": "100","comment": "Car is travelling west"}],
-    #         "5": [{"date":"2024-01-18 14:01:00", "filename": "abc.mp3", "title": "title1","file_size": 1000, "duration": "100","comment": "Car is travelling west"}, {"filename": "abc.mp3", "title": "title1","file_size": 1000, "duration": "100","comment": "Car is travelling west"}],
-    #         "10": [{"date":"2024-01-18 14:01:00", "filename": "abc.mp3", "title": "title1","file_size": 1000, "duration": "100","comment": "Car is travelling west"}, {"filename": "abc.mp3", "title": "title1","file_size": 1000, "duration": "100","comment": "Car is travelling west"}]
-    #         },
-    #     "1": {"0": [{"date":"2024-01-18 14:01:00", "filename": "abc.mp3", "title": "title1","file_size": 1000, "duration": "100","comment": "Car is travelling west"}, {"filename": "abc.mp3", "title": "title1","file_size": 1000, "duration": "100","comment": "Car is travelling west"}]},
-    #     "9": {"0": [{"date":"2024-01-18 14:01:00", "filename": "abc.mp3", "title": "title1","file_size": 1000, "duration": "100","comment": "Car is travelling west"}, {"filename": "abc.mp3", "title": "title1","file_size": 1000, "duration": "100","comment": "Car is travelling west"}]}
-    # }
     videos = {}
     for f in files_j["files"]:
         filename = f["format"]["filename"].split("/")[-1]
@@ -258,7 +256,7 @@ def admin():
     md5_value = hashlib.md5(b"admin123").hexdigest()
     if md5_pass == md5_value:
         session["name"] = user
-        return render_template("admin.html", data=[user, md5_pass])
+        return render_template("admin.html", data={"username": user, "message": ""})
     else:
         return render_template("admin_login.html", data=f"Failed Login User/Password!")
     

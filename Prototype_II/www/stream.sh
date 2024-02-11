@@ -1,4 +1,7 @@
 #!/bin/sh
+rm /opt/surveillance/www/static/stream/*.ts
+rm /opt/surveillance/www/static/stream/*.m3u8
+
 ffmpeg -fflags +genpts \
  -loglevel info \
  -rtsp_transport tcp \
@@ -14,5 +17,5 @@ ffmpeg -fflags +genpts \
  -hls_time 1 \
  -hls_list_size 3 \
  -hls_segment_type mpegts \
- -hls_segment_filename './static/stream/%d.ts' \
-./static/stream/playlist.m3u8
+ -hls_segment_filename '/opt/surveillance/www/static/stream/%d.ts' \
+/opt/surveillance/www/static/stream/playlist.m3u8
