@@ -62,8 +62,8 @@ class ProjectAlert:
 
             # set an alternative html body
             html = ""
-            for msg in message:
-                html += msg + "<br>"
+            for m1 in message:
+                html += m1 + "<br>"
 
 
             msg.add_alternative("""\
