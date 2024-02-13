@@ -16,8 +16,10 @@ try:
         for line in lines:
             line = line.replace("\n","")
             file_attr = line.split("/")
-            if(file_attr[-1].endswith(".mp4") and file_attr[-1].startswith("raw_capture_"))
+            if(file_attr[-1].endswith(".mp4") and file_attr[-1].startswith("raw_capture_")):
+                image_file = line.replace("raw_capture_","img_").replace(".mp4",".jpg")
                 os.remove(line)
+                os.remove(image_file)
         os.remove(tmp_queue_file)
 except Exception as e:
     print(f"Failed to rename file to temp file {e}")

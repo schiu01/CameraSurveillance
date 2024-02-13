@@ -41,7 +41,14 @@
     border-radius: 10px;
     width: 735px;
     height: 360px;
+    position: sticky;
+    position: -webkit-sticky;
+    top: 30;
+    z-index: 100;
+    background-color:#EEEEEE;
+
 }
+
 .calendar-hidden {
     position: relative;
     display: none !important;
@@ -53,6 +60,8 @@
 .calendar {
     position: relative;
     display: flex;
+    width: 730px;
+
 }
 .video-list-container {
     position: relative;

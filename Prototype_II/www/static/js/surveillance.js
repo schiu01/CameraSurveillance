@@ -383,11 +383,13 @@ function createVideoListByMin() {
             if(video_items != null) {
                 var item_div = video_list.append("div").attr("class","video-list-content-grid")
                 video_items.forEach(element => {
+                    image_file = element['filename'].replace("raw_capture_","img_").replace(".mp4",".jpg")
                     var e1 = item_div.append("div").attr("class","video-list-content-item").text(element["time"])
                     var e2 = item_div.append("div").attr("class","video-list-content-item").text(element["title"])
                     var e3 = item_div.append("div").attr("class","video-list-content-item").text(element["duration"])
                     var e4 = item_div.append("div").attr("class","video-list-content-item").text(element["file_size"])
                     var e5 = item_div.append("div").attr("class","video-list-content-item").text(element["comment"])
+                    e5.append("img").attr("src","/surveillance/static/recorded_images/" + image_file).attr("width","320").attr("height",'180');
                     e1.attr("onclick","playVideo('/surveillance/static/recorded_videos/" + element['filename'] +"')")
                     e2.attr("onclick","playVideo('/surveillance/static/recorded_videos/" + element['filename'] +"')")
                     e3.attr("onclick","playVideo('/surveillance/static/recorded_videos/" + element['filename'] +"')")

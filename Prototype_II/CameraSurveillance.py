@@ -15,6 +15,7 @@ import os
 import ffmpeg
 import threading
 from Notification import ProjectAlert
+import signal
 c =  threading.Condition()
 process = None
 http_start = False
@@ -44,6 +45,11 @@ class CameraSurveillance:
 
             
         """
+
+
+        ## Signals - INT, KILL gracefully shutdown
+        signal.signal(signal.SIGINT,self.end_all)
+        
         self.config = None
         self.config_file = "./config/camera_surveillance.config"
         self.read_config()
@@ -104,24 +110,40 @@ class CameraSurveillance:
 
         ## Notification Flag
         self.notify_users = self.config.get("send_notifications")
-        self.alert = ProjectAlert()
+        self.alert = ProjectAlert(email_user=self.config.get("notification_from_email"),
+                                  smtp_password=self.config.get("notification_pwd"),
+                                  notify_user=self.config.get("notification_email")
+                                  )
         self.alert_words = self.config["notification_alert_hot_words"]
-
+    def end_all(self, *args):
+        print("Signal Caught, Gracefully Shutting Down!")
+        self.camera_stop = True
     def alerting(self):
         while(not self.camera_stop):
             try:
-                alert_message = self.notify_queue.get(block=False)
-                subject = alert_message.get("subject")
-                message = alert_message.get("message")
-                message_words = message.split(" ")
-                send_alert = False
-                for m in message_words:
-                    if(m in self.alert_words):
-                        send_alert = True
-                        break
-                if(send_alert):
-                    self.alert.send_email(subject, message)
+                if(self.notify_queue.empty()):
+                    sleep(10)
+                else:
+                    alert_message = self.notify_queue.get(block=False)
+                    subject = alert_message.get("subject")
+                    message = alert_message.get("message")
+                    image_file = alert_message.get("image_file")
+                    message_words = f"{message}".split(" ")
+                    subject_words = str(subject).split(" ")
+                    send_alert = False
+                    for sw in subject_words:
+                        if(sw in self.alert_words):
+                            send_alert = True
+                            break
+                    if(not send_alert):
+                        for m in message_words:
+                            if(m in self.alert_words):
+                                send_alert = True
+                                break
+                    if(send_alert):
+                        self.alert.send_email(subject, message, image_file)
             except Exception as e:
+                print(f"Queue / Alert Processing Error {e}")
                 sleep(10)
 
     def send_alert_queue(self, object):
@@ -232,12 +254,13 @@ class CameraSurveillance:
                     except Exception as e:
                         print(f"There was an error capturing frame {e}")
     def http_stream(self):
+        print("Start Stream to RTSP...")
         while(not self.camera_stop):
             global http_start
             global process
             
             if(process == None):
-                print("Starting Process...")
+                
                 http_start = False
                 process = (
                     ffmpeg
@@ -300,6 +323,7 @@ class CameraSurveillance:
             Continuously Capture Frames from Camera.
             
         """
+        print("Starting Camera Feed Loop...")
         while(not self.camera_stop):
             ret, frame = self.retrieve_frame()
             if(ret):
@@ -346,18 +370,21 @@ class CameraSurveillance:
                 
                 if(hierarchy[0][i][3] == -1):
                     total_blobs += 1
+
+                    ## Remap the detected area to the actual image size.
                     ctr_resized = np.multiply(ctr, self.fgmask_ratio).astype(int)
                     (cx, cy, cw, ch) = cv2.boundingRect(ctr_resized)
+
+                    ## Blank the areas where the blob is, so it can be 'bitwise-and' later for region of interest frame.
                     cv2.rectangle(fgmask_new, (cx, cy), (cx+cw, cy+ch), (1,1), -1 )
-                    #cv2.rectangle(resized_frame, (cx, cy), (cx+cw, cy+ch), (0,255,0), 2 )
-                    #print(f"CTR Area: {ctr_area} | height: {h}")
-                    #cv2.imwrite("images/detected.jpg", self.frame_resized)
-                    ## Get the Regions of Interests
-                    ## Apppy bitwise and with fgmask, and retrieve the ROIs.
         if(total_blobs > 0):
+
+            ## Only send the relevant blobs detected to Yolo
             roi_frame = cv2.bitwise_and(resized_frame,resized_frame, mask=fgmask_new)
 
+            ##
             obj_detection_results = self.obj_detection.detect(roi_frame)
+
             resized_frame, total_objects, detected_objects = self.obj_detection.boundBox(inp_frame=resized_frame,
                                                            results=obj_detection_results,
                                                            img_ratio=1,
@@ -366,15 +393,16 @@ class CameraSurveillance:
             resized_frame, new_objects_count, total_obj_tracked, str_object_detected, comments = self.obj_tracker.track(resized_frame, detected_objects, total_objects)
             for str_comment in comments:
                 self.video_comments[str_comment] = 1
+
+            ## If new objects are found and save video flag isnt set, then start the stream into a video file.
+            ## This is also where some "jerky" images occur, as these processes need to startup.
+            ## FUTURE WORK - MOVE THIS TO THE THREAD RUNNING THE SAVE VIDEO!.
             if(total_obj_tracked > 0 and not self.save_video): ## Notify if new objects found.
                 
                 self.datetime = datetime.now().strftime("%Y%m%d%H%M%S")
                 self.output_file = f"recorded_videos/vidtmp_raw_capture_{self.datetime}.mp4"
-
-                #print(f"Start Recording... {self.output_file}")
-
-                # four_cc = cv2.VideoWriter_fourcc(*'mp4v')
-                # self.record_out = cv2.VideoWriter(self.output_file, four_cc, 15.0, (self.frame_resized["width"],self.frame_resized["height"]))
+                self.title_image = f"recorded_images/img_{self.datetime}.jpg"
+                cv2.imwrite(self.title_image,resized_frame)
                 self.save_video = True
                 command = [self.ffmpeg,
                         '-y',
@@ -393,24 +421,6 @@ class CameraSurveillance:
                         self.output_file ]
                 self.record_out = sp.Popen(command, stdin=sp.PIPE, stderr=sp.PIPE)
                 self.video_title = str_object_detected
-                # print(resized_frame.shape)
-                # print(f"==> ({self.frame_resized['width']},{self.frame_resized['height']})")
-#             else:
-#                 if(self.save_video and total_obj_tracked == 0 and self.record_extra_frame_count > self.total_extra_frames_recorded):
-#                     self.record_out.stdin.close()
-#                     self.record_out.wait()
-#                     self.save_video = False
-#                     self.notify_users = True
-#                     self.record_extra_frame_count = 0
-#                     self.addCommentsffmpeg()
-#                     self.video_comments = {}
-
-#                 else:
-# #                    print(f"Total Objects Tracked: {total_obj_tracked}")
-#                     if(total_obj_tracked == 0):
-#                         self.record_extra_frame_count += 1
-#                     else:
-#                         self.record_extra_frame_count = 0
                 
         else:
 
@@ -551,4 +561,4 @@ class CameraSurveillance:
         proc = sp.Popen(command, stdin=sp.PIPE, stderr=sp.PIPE)
         proc.wait()
         os.remove(self.output_file)
-        self.send_alert_queue({"subject": self.video_title, "message": {comment}})
+        self.send_alert_queue({"subject": self.video_title, "message": {comment}, "image_file": self.title_image})
