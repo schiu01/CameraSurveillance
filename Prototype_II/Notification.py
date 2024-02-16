@@ -45,6 +45,8 @@ class ProjectAlert:
         print("Sending Notification...", end="")
         try:
             msg = EmailMessage()
+            from_address = self.email_user
+            to_address = self.to_user
 
             # generic email headers
             msg['Subject'] = f"ALERT: {subject}"
@@ -61,15 +63,16 @@ class ProjectAlert:
             # use your computer's name
 
             # set an alternative html body
-            html = ""
-            for m1 in message:
-                html += m1 + "<br>"
+            html = f"<table><tr><th>ALERT: {subject}</th></tr>"
+            for i, m1 in enumerate(message):
+                html += f"<tr><td>{m1}</td></tr>"
+            html += "</table>"
 
 
             msg.add_alternative("""\
             <html>
                 <body>
-                    <p><B>ALERT</b>: {subject} <br>
+                    
                     {html}
                     </p>
                     <img src="cid:{image_cid}">

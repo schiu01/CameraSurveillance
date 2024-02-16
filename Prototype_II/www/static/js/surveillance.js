@@ -96,7 +96,7 @@ function changeMenu(menuId) {
         var video = d3.select("#video_play_area")
         video.remove();
         var video_container = d3.select("#video_play");
-        video_container.append("video").attr("width","735").attr("height","360").attr("id","video_play_area").attr("controls","true").attr("autoplay","true")
+        video_container.append("video").attr("class","video_play").attr("id","video_play_area").attr("controls","true").attr("autoplay","true")
         showRecordedVideoContent()
 
         
@@ -218,7 +218,7 @@ function createCalendar(year, month) {
         for(y=0;y<7;y++) {
 
             new_date.setDate(new_date.getDate() + 1 )
-            console.log("[" + new_date.getDate().toString() + "|" + param_dom.toString() + "][" + new_date.getMonth().toString() + "|" + param_month.toString() + "][" +new_date.getFullYear().toString() + "|" + param_year.toString()+ "]");
+            //console.log("[" + new_date.getDate().toString() + "|" + param_dom.toString() + "][" + new_date.getMonth().toString() + "|" + param_month.toString() + "][" +new_date.getFullYear().toString() + "|" + param_year.toString()+ "]");
             day_num = new_date.getDate();
             var cell_style=""
             var cell_style_2 = "calendar-cell-grid-cell"
@@ -259,6 +259,8 @@ function createCalendar(year, month) {
     }
 
 }
+
+
 
 // // Calendar Control: Creates Video List by the parameter passed in  hour.
 function createVideoList(hour) {
@@ -357,8 +359,111 @@ function refreshMins(param_year, param_month, param_dom, curr_hour) {
 
 }
 
-// This function re-draws the grid that holds information for all the videos.
 function createVideoListByMin() {
+    el_carousel_container = d3.select("#carousel-container")
+    el_carousel_container.selectAll("*").remove()
+    carousel_step_value = 0;
+    var carousel_hour = d3.select("#carousel_hour");
+    carousel_hour.selectAll("*").remove();
+
+    console.log(videos.length);
+    if(Object.entries(videos).length == 0) {
+        el_carousel_container.append("div").text("No Videos found")
+        
+    }
+    for(var i=-1; i< 61; i++) {
+        carousel_hour.append("div").attr("id","min_" + i.toString());
+    }    
+    var pic_step = 0 
+    for(var i=0; i<60; i+=5) {
+        
+        //video_list.append("div").attr("class","video-list-time").text(parseInt(curr_hour).toString().padStart(2,"0") + ":" + i.toString().padStart(2,"0") );
+        hour_list = videos[i];
+        
+        if(hour_list == null) {
+            //video_list.append("div").attr("class","video-list-content").text(" ")
+            //el_carousel_container.text("No Videos found")
+        } else {
+            video_items = hour_list
+            video_items.forEach(element => {
+                    image_file = element['filename'].replace("raw_capture_","img_").replace(".mp4",".jpg")
+                    var el_container_child = el_carousel_container.append("div").attr("class","carousel-item-container").attr("id",element['filename'])
+                    var el_container_child_1 = el_container_child.append("div").attr("class","carousel-item")
+                    el_container_child_1.append("img").attr("src","/surveillance/static/recorded_images/" + image_file).attr("width", 640).attr("height", 360)
+                    el_container_child_1.append("div").text(element['comment'])
+                    el_container_child.attr("onclick","playVideo('/surveillance/static/recorded_videos/" + element['filename'] +"')")
+
+                    var pic_date_id = "min_" + (new Date(element['date'])).getMinutes().toString() ;
+                    var pic_date_el = d3.select("#" + pic_date_id)
+                    pic_date_el.attr("style","background-color: #FF0000; width: 10px; height: 10px; justify-self: center;margin: 3px; cursor: pointer")
+                    pic_date_el.attr("pic_step",pic_step)
+                    pic_date_el.attr("onclick","scrollPicStep(" + pic_step.toString() + ")")
+                    pic_step++;
+
+                    
+                    
+        });
+    }
+
+    var el = document.getElementById("carousel-container");
+    el.scrollLeft += 0 - (carousel_step_value * 660);
+}
+
+
+    // // dot at the top if there is a video
+    // for(var i=-1; i<= 61; i++) {
+    //     //var el_min_tag = carousel_hour.append("div");
+    //     if(i>=0 && videos[i] != null) {
+    //         //var el_min_parent = el_min_tag.append("div").attr("style","border: 1px solid green;align-items: center; justify-self: center;")
+    //         var el_min_parent = carousel_hour.append("div").attr("style","align-items: center; justify-self: center;")
+    //         el_min_parent.append("div").attr("style","height:10px; width:10px; background-color: #FF0000; border-radius: 10px; cursor: pointer; margin: 10px; padding: 3px;")
+
+    //     } else {
+    //         var el_min_parent = carousel_hour.append("div")
+            
+            
+
+    //     }
+        
+    //}    
+    for(var i=-1; i< 61; i++) {
+        //var el_min_tag = carousel_hour.append("div");
+        if(i>=0) {
+            //var el_min_parent = el_min_tag.append("div").attr("style","border: 1px solid green;align-items: center; justify-self: center;")
+            var el_min_parent = carousel_hour.append("div").attr("style","border: 1px solid green;align-items: center; justify-self: center;")
+            if((i%5) == 0) {
+                el_min_parent.append("div").attr("style","height:20px; width:2px; background-color: #000000;")
+            } else {
+            
+                el_min_parent.append("div").attr("style","height:10px; width:2px; background-color: #000000;")
+
+            }
+
+        } else {
+            var el_min_parent = carousel_hour.append("div");
+        }
+        
+    }
+    var hour=curr_hour;
+    for(var i=1;i<61; i+=5) {
+        var el_time = carousel_hour.append("div").attr("style","grid-column: " + i.toString() + "/" + (i+3).toString() + ";font-size: 12px; justify-self: center; ")
+        var hour_string = ""
+        if(i != 61) {
+            hour_string = hour.toString() + ":" + (i-1).toString().padStart(2,'0')
+        }
+        el_time.append("div").attr("style","text-align: center; padding: 5px; border: 1px solid #000000; border-radius: 5px; margin: 2px;").text(hour_string)
+        carousel_hour.append("div")
+        carousel_hour.append("div")
+        //carousel_hour.append("div")
+        //carousel_hour.append("div")
+    }
+
+}
+
+
+
+// This function re-draws the grid that holds information for all the videos.
+function createVideoListByMin1() {
 
 
     var video_main = d3.select("#video_list_main")
@@ -389,12 +494,15 @@ function createVideoListByMin() {
                     var e3 = item_div.append("div").attr("class","video-list-content-item").text(element["duration"])
                     var e4 = item_div.append("div").attr("class","video-list-content-item").text(element["file_size"])
                     var e5 = item_div.append("div").attr("class","video-list-content-item").text(element["comment"])
-                    e5.append("img").attr("src","/surveillance/static/recorded_images/" + image_file).attr("width","320").attr("height",'180');
+                    var e6 = item_div.append("img").attr("class","video-image").attr("src","/surveillance/static/recorded_images/" + image_file).attr("width","320").attr("height",'180');
                     e1.attr("onclick","playVideo('/surveillance/static/recorded_videos/" + element['filename'] +"')")
                     e2.attr("onclick","playVideo('/surveillance/static/recorded_videos/" + element['filename'] +"')")
                     e3.attr("onclick","playVideo('/surveillance/static/recorded_videos/" + element['filename'] +"')")
                     e4.attr("onclick","playVideo('/surveillance/static/recorded_videos/" + element['filename'] +"')")
                     e5.attr("onclick","playVideo('/surveillance/static/recorded_videos/" + element['filename'] +"')")
+                    e5.attr("onclick","playVideo('/surveillance/static/recorded_videos/" + element['filename'] +"')")
+                    e6.attr("onclick","playVideo('/surveillance/static/recorded_videos/" + element['filename'] +"')")
+                    
                 })
                 
             } else {

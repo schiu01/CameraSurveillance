@@ -104,6 +104,99 @@ var videos_hour = {}
 // Full list of videos as we get from our json file.
 var videos = {}
 </script>    
+<style>
+    .carousel-container {
+        display: flex;
+        
+        overflow: hidden;
+        width: 640;
+        
+        scroll-behavior: smooth;
+        
+    }
+    .carousel-time-slot-container {
+        align-items: center;
+        width: 740px;
+    }
+    .carousel-item-container {
+        float: right;
+    }
+    .carousel-item {
+        padding: 10px;
+    }
+    .carousel-hour-container {
+        
+        display: grid;
+        grid-template-columns: repeat(10,auto);
+        
+        padding: 10px;
+    
+    }
+    .carousel-hour-item {
+        
+        margin: 10px;
+        padding: 5px;
+        border: 1px solid #000000;
+        background-color: rgb(0, 72, 154);
+        color: white;
+        border-radius: 15px;
+        width: 20px;
+        height: 20px;
+        align-items: center;
+        text-align: center;
+        vertical-align: middle;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        font-size: 13px;
+        font-weight: bold;
+        
+    }
+    .carousel-time-slot-header {
+        text-align: center;
+    }
+    </style>
+    <script>
+    var carousel_step_value = 0;
+    function btn_next() {
+        var carousel_container = document.getElementById("carousel-container");
+        var offsetLeft_orig = carousel_container.offsetLeft;
+        carousel_container.scrollLeft += 660;
+        var offsetLeft_new = carousel_container.offsetLeft;
+        if(offsetLeft_new != offsetLeft_orig) {
+            carousel_step_value++;
+        }
+    
+    
+    }
+    function btn_prev() {
+        var carousel_container = document.getElementById("carousel-container");
+        var offsetLeft_orig = carousel_container.offsetLeft;
+        carousel_container.scrollLeft -= 660;
+        var offsetLeft_new = carousel_container.offsetLeft;
+        if(offsetLeft_new != offsetLeft_orig) {
+            carousel_step_value--;
+        }
+
+    
+    
+    }
+
+    function scrollPicStep(pic_step) {
+        var carousel_container = document.getElementById("carousel-container");
+
+        var num_steps = pic_step - carousel_step_value;
+        carousel_step_value = pic_step;
+        carousel_container.scrollLeft += num_steps * 660  ;
+    
+    }
+
+    </script>
+
+
+<script>
+// Populate Carousel images
+
+
+</script>
 
 <!--
     Main Layout - for a display of videos when a video selection is clicked.
@@ -112,7 +205,7 @@ var videos = {}
 -->
 <div class="main_layout">
     <div id="video_play" class="video_play">
-        <video id="video_play_area" width="735" height="360" controls></video>
+        <video id="video_play_area" class="video_play" controls></video>
     </div>
     <div id="calendar" class="calendar">
     <div id="calendar_container" class="calendar-container">
@@ -130,9 +223,66 @@ var videos = {}
     </div>
     <div id="video_list_container" class="video-list-container"><div id="video_list_main"></div></div>
     <div id="other_info_container" class="other-info-container">Other info</div>
+    <div class="carousel-time-slot-container" style="border: 2px solid #000000; background-image: linear-gradient(to bottom , rgb(206, 228, 255), white); border-radius: 5px;">
+        <div id="carousel_hour" style="display: grid; grid-template-columns: repeat(62,20px); justify-self: center; align-items: center;padding:20px; scroll-behavior: smooth;overflow:hidden; cursor: move"></div>
+        <div></div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 50px auto 50px; justify-self: center;align-items: center;">
+        <div><div><img src="static/images/left.png" width="50" height="50" style="cursor:pointer" onclick="btn_prev()"></div></div>
+    
+    <div class="carousel-container" id="carousel-container">
+    </div>
+    <div><div><img src="static/images/right.png" width="50" height="50" style="cursor:pointer" onclick="btn_next()"></div></div>
+    </div>
+    
+</div>
+
+<!--
+
+Carousel Start
+
+
+-->
+<script>
+    var pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+    var elmt =  document.getElementById("carousel_hour");
+    function dragMouseDown(e) {
+        e = e || window.event;
+        e.preventDefault();
+        pos3 = e.clientX;
+        document.onmouseup = closeDragElement;
+        document.onmousemove = elementDrag;
+        //elmt.scrollLeft += 50;
+        console.log("test")
+        
+    }
+    function elementDrag(e) {
+        e = e || window.event;
+        e.preventDefault();
+        pos1 = pos3 - e.clientX;
+        
+        elmt.scrollLeft += pos1 ;
+        
+        
+     }
+    function closeDragElement(e) {
+        document.onmouseup = null;
+        document.onmousemove = null;
+    }
+    elmt.onmousedown = dragMouseDown;
+    </script>    
+
+<body>
+<div class="main-layout">
 </div>
 
 
+</body>
+<script>
+
+
+</script>
 </body>
 
 <script>
