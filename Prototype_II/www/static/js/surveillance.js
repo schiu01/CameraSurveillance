@@ -378,7 +378,7 @@ function createVideoListByMin() {
     var carousel_hour = d3.select("#carousel_hour");
     carousel_hour.selectAll("*").remove();
 
-    
+    console.log(videos)
     if(Object.entries(videos).length == 0) {
         el_carousel_container.append("div").text("No Videos found")
         
@@ -402,7 +402,15 @@ function createVideoListByMin() {
                     var el_container_child = el_carousel_container.append("div").attr("class","carousel-item-container").attr("id",element['filename'])
                     var el_container_child_1 = el_container_child.append("div").attr("class","carousel-item")
                     el_container_child_1.append("img").attr("src","/surveillance/static/recorded_images/" + image_file).attr("width", 640).attr("height", 360)
-                    el_container_child_1.append("div").text(element['comment'])
+                    var commentary_div = el_container_child_1.append("div").attr("style","font-family: tahoma; font-size: 14px;")
+                    commentary_div.append("div").html("<B>Title</B>: " + element['title'] + "<BR>")
+                    commentary_div.append("div").html("<B>Date / Time</B>: " + element['date'] + "<BR>")
+                    commentary_div.append("div").html("<B>File Format</B>: " + element['file_format'] + "<BR>")
+                    commentary_div.append("div").html("<B>File Size</B>: " + element['file_size'] + "<BR>")
+                    commentary_div.append("div").html("<B>File Name</B>: " + element['filename'] + "<BR>")
+                    commentary_div.append("div").html("<B>Video Duration</B>: " + element['duration'] + "<BR>")
+                    commentary_div.append("div").html("<B>Commentary</B>: " + element['comment'] + "<BR>")
+                    commentary_div.append("div").html("<B>Bit Rate</B>: " + (parseInt(element['bit_rate']) / (1024*1024)).toFixed(2) + "kbps<BR>")
                     el_container_child.attr("onclick","playVideo('/surveillance/static/recorded_videos/" + element['filename'] +"')")
 
                     var pic_date_id = "min_" + (new Date(element['date'])).getMinutes().toString() ;
@@ -422,22 +430,6 @@ function createVideoListByMin() {
 }
 
 
-    // // dot at the top if there is a video
-    // for(var i=-1; i<= 61; i++) {
-    //     //var el_min_tag = carousel_hour.append("div");
-    //     if(i>=0 && videos[i] != null) {
-    //         //var el_min_parent = el_min_tag.append("div").attr("style","border: 1px solid green;align-items: center; justify-self: center;")
-    //         var el_min_parent = carousel_hour.append("div").attr("style","align-items: center; justify-self: center;")
-    //         el_min_parent.append("div").attr("style","height:10px; width:10px; background-color: #FF0000; border-radius: 10px; cursor: pointer; margin: 10px; padding: 3px;")
-
-    //     } else {
-    //         var el_min_parent = carousel_hour.append("div")
-            
-            
-
-    //     }
-        
-    //}    
     for(var i=-1; i< 61; i++) {
         //var el_min_tag = carousel_hour.append("div");
         if(i>=0) {
