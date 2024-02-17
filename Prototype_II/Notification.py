@@ -62,6 +62,11 @@ class ProjectAlert:
             # if `domain` argument isn't provided, it will 
             # use your computer's name
 
+            ## image_file has similar naming convention to the corresponding mp4 file
+            mp4_file = image_file.split("/")[-1]
+            mp4_file = mp4_file.replace("img_","raw_capture_").replace(".jpg",".mp4")
+            
+
             # set an alternative html body
             html = f"<table><tr><th>ALERT: {subject}</th></tr>"
             for i, m1 in enumerate(message):
@@ -76,9 +81,12 @@ class ProjectAlert:
                     {html}
                     </p>
                     <img src="cid:{image_cid}">
+                    <P>
+                    <a href="http://192.168.1.23/surveillance/playvideo?file={video_file}">{video_file}</A> 
+                    </P>
                 </body>
             </html>
-            """.format(image_cid=image_cid[1:-1],html=html, subject=subject),subtype='html')
+            """.format(image_cid=image_cid[1:-1],html=html, subject=subject, video_file=mp4_file),subtype='html')
             # image_cid looks like <long.random.number@xyz.com>
             # to use it as the img src, we don't need `<` or `>`
             # so we use [1:-1] to strip them off

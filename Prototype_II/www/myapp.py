@@ -260,3 +260,12 @@ def admin():
     else:
         return render_template("admin_login.html", data=f"Failed Login User/Password!")
     
+@app.route("/playvideo")
+def playvideo():
+    video_name = request.args.get("file")
+    if(video_name == None):
+        return render_template("index.html")
+    if(video_name.endswith(".mp4")):
+        return render_template("play_video.html",video_name=f"/surveillance/static/recorded_videos/{video_name}")
+    else:
+        return render_template("index.html")
