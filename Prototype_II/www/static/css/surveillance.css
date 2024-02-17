@@ -31,7 +31,7 @@
 }
 .main_layout {
     display: grid;
-    grid-template-columns: auto auto;
+    grid-template-columns: auto;
     grid-gap: 10px;
     justify-content: center;
     

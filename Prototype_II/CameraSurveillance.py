@@ -119,6 +119,11 @@ class CameraSurveillance:
         print("Signal Caught, Gracefully Shutting Down!")
         self.camera_stop = True
     def alerting(self):
+        """
+            This Thread invoked process is to process Notifcations system.
+            if a 'hot' word is found in the comment, then we send a notification.
+        
+        """
         while(not self.camera_stop):
             try:
                 if(self.notify_queue.empty()):
@@ -151,6 +156,11 @@ class CameraSurveillance:
     def start(self):
         """
             Starts the Camera Surveillance system
+            using a multi-threading model - Due to Resource Intensive acitivites by each process.
+            Thread #1 - Loop Camera Frames
+            Thread #2 - Saving Video Frames - if saving flag is enabled
+            Thread #3 - Stream video to RTSP Server.
+            Thread #4 - Notification
         """
         self.init_capture()
         th1 = Thread(name="read_thread", target=self.loop_camera_frames)
@@ -171,10 +181,20 @@ class CameraSurveillance:
         #self.loop_camera_frames()
 
     def read_config(self):
+        """
+            Module to read configuration file camera_surveillance.config
+
+        """
         fd = open(self.config_file,"r")
         self.config = js.load(fd)
         fd.close()
+
+
     def decode_password(self, enc_password):
+        """
+            The password in our configuration file is base64 encoded. This module is to decode it prior to sending for authentication
+
+        """
         return  base64.b64decode(str(enc_password).encode('ascii')).decode('ascii')
     
     def build_rtsp_url(self):
@@ -223,6 +243,7 @@ class CameraSurveillance:
         # else:
         #     self.record_out = None
         self.record_out = None
+        self.str_object_detected = "" 
         self.ffmpeg = 'ffmpeg'
         self.dimension = '{}x{}'.format(self.frame_resized["width"],self.frame_resized["height"])
 
@@ -236,17 +257,53 @@ class CameraSurveillance:
         self.image_queue.put_nowait(frame)
     def save_video_frames(self):
         
-            while(not self.camera_stop or self.image_queue.qsize() > 0):
-                
+            while(not self.camera_stop):
+
+                ## If save video is done, but still recording and there is nothing else to record
+                ## Stop and save the recording, then notify user
+
+
                 if(self.image_queue.qsize() == 0 or not self.save_video):
                     sleep(0.1)
                     continue
                 frame = None
+
+
+                                
                 try:
                     frame = self.image_queue.get_nowait()
                 except Exception as e:
                     pass
+
                 if(isinstance(frame, np.ndarray)):  
+
+                    ## Check if record is open - if not open it, else just save
+                    if(self.record_out == None and self.save_video):
+
+                        self.datetime = datetime.now().strftime("%Y%m%d%H%M%S")
+                        self.output_file = f"recorded_videos/vidtmp_raw_capture_{self.datetime}.mp4"
+                        self.title_image = f"recorded_images/img_{self.datetime}.jpg"
+                        print(f"Saving Video to {self.output_file}")
+                        cv2.imwrite(self.title_image,frame)
+                        
+                        command = [self.ffmpeg,
+                                '-y',
+                                '-f', 'rawvideo',
+                                '-vcodec','rawvideo',
+                                '-s', self.dimension,
+                                '-pix_fmt', 'bgr24',
+                                '-r', '15',
+                                '-i', '-',
+                                "-metadata",f"title={self.str_object_detected}",
+                                '-vcodec','h264',
+                                #'-vcodec','mpeg4',
+                                '-pix_fmt',"yuv420p",
+                                '-crf','23',
+                                '-b:v', '5000k',
+                                self.output_file ]
+                        self.record_out = sp.Popen(command, stdin=sp.PIPE, stderr=sp.PIPE)
+                        self.video_title = self.str_object_detected
+
                     #print("Recording....")         
                     try:       
                         #self.record_out.write(frame)
@@ -269,7 +326,7 @@ class CameraSurveillance:
                         "rtsp://0.0.0.0:8554/surveillance",
                         codec="h264",
                         pix_fmt="yuv420p",
-                        rtsp_transport="udp",
+                        rtsp_transport="tcp",
                         maxrate="1200k",
                         bufsize="5000k",
                         g="64",
@@ -291,7 +348,7 @@ class CameraSurveillance:
                             "rtsp://0.0.0.0:8554/surveillance",
                             codec="h264",
                             pix_fmt="yuv420p",
-                            rtsp_transport="udp",
+                            rtsp_transport="tcp",
                             maxrate="2400k",
                             bufsize="5000k",
                             g="64",
@@ -324,20 +381,33 @@ class CameraSurveillance:
             
         """
         print("Starting Camera Feed Loop...")
+        retries = 0
         while(not self.camera_stop):
-            ret, frame = self.retrieve_frame()
-            if(ret):
-                if(frame.size == 0):
-                    break
-                pframe = self.process_frame(frame)
-                if(self.save_video):
-                    self.queue_frame(pframe)
+            try:
+                ret, frame = self.retrieve_frame()
+                if(ret):
+                    if(frame.size == 0):
+                        break
+                    pframe = self.process_frame(frame)
+                    if(self.save_video):
+                        self.queue_frame(pframe)
 
-                if(http_start):
-                    try:
-                        process.stdin.write(pframe.tobytes())
-                    except Exception as e:
-                        pass
+                    if(http_start):
+                        try:
+                            process.stdin.write(pframe.tobytes())
+                            #outs, errs = process.communicate(input=pframe.tobytes(), timeout=5)
+                        except Exception as e:
+                            print(e)
+                            print("Killing Process...")
+                            process.kill()
+                            pass
+                retries = 0
+            except Exception as e:
+                retries += 1
+                if(retries > 10):
+                    print(str(e))
+                    self.camera_stop = True
+                    raise(Exception("Error in Frame Loop!"))
                 
 
         self.pool.close()
@@ -397,30 +467,39 @@ class CameraSurveillance:
             ## If new objects are found and save video flag isnt set, then start the stream into a video file.
             ## This is also where some "jerky" images occur, as these processes need to startup.
             ## FUTURE WORK - MOVE THIS TO THE THREAD RUNNING THE SAVE VIDEO!.
-            if(total_obj_tracked > 0 and not self.save_video): ## Notify if new objects found.
-                
-                self.datetime = datetime.now().strftime("%Y%m%d%H%M%S")
-                self.output_file = f"recorded_videos/vidtmp_raw_capture_{self.datetime}.mp4"
-                self.title_image = f"recorded_images/img_{self.datetime}.jpg"
-                cv2.imwrite(self.title_image,resized_frame)
-                self.save_video = True
-                command = [self.ffmpeg,
-                        '-y',
-                        '-f', 'rawvideo',
-                        '-vcodec','rawvideo',
-                        '-s', self.dimension,
-                        '-pix_fmt', 'bgr24',
-                        '-r', '15',
-                        '-i', '-',
-                        "-metadata",f"title={str_object_detected}",
-                        '-vcodec','h264',
-                        #'-vcodec','mpeg4',
-                        '-pix_fmt',"yuv420p",
-                        '-crf','23',
-                        '-b:v', '5000k',
-                        self.output_file ]
-                self.record_out = sp.Popen(command, stdin=sp.PIPE, stderr=sp.PIPE)
-                self.video_title = str_object_detected
+            if(total_obj_tracked > 0 ): ## Notify if new objects found.
+                if(not self.save_video):
+                    self.save_video = True
+                    self.str_object_detected = str_object_detected
+
+
+                    # // 
+                    # The portion below is moved to thread-based approach, to invoke ffmpeg when an object is detected
+                    # This move resolves the issue of frame-freeze for a second or two when an object is detected
+                    # //
+                    
+                    # self.datetime = datetime.now().strftime("%Y%m%d%H%M%S")
+                    # self.output_file = f"recorded_videos/vidtmp_raw_capture_{self.datetime}.mp4"
+                    # self.title_image = f"recorded_images/img_{self.datetime}.jpg"
+                    # cv2.imwrite(self.title_image,resized_frame)
+                    
+                    # command = [self.ffmpeg,
+                    #         '-y',
+                    #         '-f', 'rawvideo',
+                    #         '-vcodec','rawvideo',
+                    #         '-s', self.dimension,
+                    #         '-pix_fmt', 'bgr24',
+                    #         '-r', '15',
+                    #         '-i', '-',
+                    #         "-metadata",f"title={str_object_detected}",
+                    #         '-vcodec','h264',
+                    #         #'-vcodec','mpeg4',
+                    #         '-pix_fmt',"yuv420p",
+                    #         '-crf','23',
+                    #         '-b:v', '5000k',
+                    #         self.output_file ]
+                    # self.record_out = sp.Popen(command, stdin=sp.PIPE, stderr=sp.PIPE)
+                    # self.video_title = str_object_detected
                 
         else:
 
@@ -440,10 +519,13 @@ class CameraSurveillance:
                     #self.record_out.release()
                     self.record_out.stdin.close()
                     self.record_out.stderr.close()
-                    self.record_out.wait()
+                    self.record_out.wait(5)
+                    self.record_out.terminate()
 
                     self.addCommentsffmpeg()
                     self.video_comments = {}
+                    self.str_object_detected = ""
+                    self.record_out = None
                     
             
             self.obj_tracker.clear_tracker()

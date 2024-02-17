@@ -223,7 +223,8 @@ var videos = {}
     </div>
     <div id="video_list_container" class="video-list-container"><div id="video_list_main"></div></div>
     <div id="other_info_container" class="other-info-container">Other info</div>
-    <div class="carousel-time-slot-container" style="border: 2px solid #000000; background-image: linear-gradient(to bottom , rgb(206, 228, 255), white); border-radius: 5px;">
+    <div id="carousel_main" style="display: grid; justify-items: center; grid-template-columns: auto;">
+    <div  id="carousel-time-slot-container"  class="carousel-time-slot-container" style="border: 2px solid #000000; background-image: linear-gradient(to bottom , rgb(206, 228, 255), white); border-radius: 5px;">
         <div id="carousel_hour" style="display: grid; grid-template-columns: repeat(62,20px); justify-self: center; align-items: center;padding:20px; scroll-behavior: smooth;overflow:hidden; cursor: move"></div>
         <div></div>
     </div>
@@ -235,7 +236,8 @@ var videos = {}
     </div>
     <div><div><img src="static/images/right.png" width="50" height="50" style="cursor:pointer" onclick="btn_next()"></div></div>
     </div>
-    
+
+</div>
 </div>
 
 <!--

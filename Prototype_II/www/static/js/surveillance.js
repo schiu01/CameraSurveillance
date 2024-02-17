@@ -33,8 +33,14 @@ function showRecordedVideoContent() {
         calendar_list.attr("class","calendar");            
     // show video list
         var video_list_container = d3.select("#video_list_container");
-        video_list_container.attr("class","video-list-container");           
-        
+        video_list_container.attr("class","video-list-container");         
+
+        var carousel_container = d3.select("#carousel_main")
+        carousel_container.attr("style","display: grid;")
+
+
+        // var carousel_time_slot = d3.select("#carousel-time-slot-container")
+        // carousel_time_slot.attr("style", "display: flex;")
         hideOtherInfoContent();
         hideLiveContent();
 
@@ -49,6 +55,12 @@ function hideRecordedVideoContent() {
     var video_list_container = d3.select("#video_list_container");
     video_list_container.attr("class","video-list-container-hidden");
     
+    var carousel_container = d3.select("#carousel_main")
+    carousel_container.attr("style"," display: none !important;")
+
+    // var carousel_time_slot = d3.select("#carousel-time-slot-container")
+    // carousel_time_slot.attr("style", "display: none !important;")
+
 }
 
 // Menu Control: How Other Info Content - if the menu item is clicked
@@ -366,7 +378,7 @@ function createVideoListByMin() {
     var carousel_hour = d3.select("#carousel_hour");
     carousel_hour.selectAll("*").remove();
 
-    console.log(videos.length);
+    
     if(Object.entries(videos).length == 0) {
         el_carousel_container.append("div").text("No Videos found")
         
