@@ -81,6 +81,7 @@ function hideOtherInfoContent() {
 }
 
 // Menu Control: changeMenu Function for menu control.
+var hls = new Hls({ debug: false});
 function changeMenu(menuId) {
     active_menu = d3.select("#" + activeMenuId);
     active_menu.attr("class","menu_cell");
@@ -92,11 +93,17 @@ function changeMenu(menuId) {
 
         showLiveContent();
         var video_area =document.getElementById("video_play_area");
+        if(!video_area.paused) { 
+            video_area.pause(); 
+            
+        
+        }
 
 
-        var hls = new Hls({ debug: false});
+        
         var random_var = Math.random().toString();
-        hls.loadSource("http://192.168.1.23/surveillance/static/stream/playlist.m3u8?"+random_var);
+        //hls.loadSource("http://192.168.1.23/surveillance/static/stream/playlist.m3u8?"+random_var);
+        hls.loadSource("http://192.168.1.23:8888/surveillance/index.m3u8?"+random_var);
         hls.attachMedia(video_area);
         
         hls.on(Hls.Events.MEDIA_ATTACHED, function () {
@@ -106,6 +113,10 @@ function changeMenu(menuId) {
 
     } else if(menuId == "menu_recorded_videos") {
         var video = d3.select("#video_play_area")
+        if(!video.paused) { 
+            hls.stopLoad();
+        
+        }
         video.remove();
         var video_container = d3.select("#video_play");
         video_container.append("video").attr("class","video_play").attr("id","video_play_area").attr("controls","true").attr("autoplay","true")

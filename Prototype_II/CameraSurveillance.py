@@ -259,13 +259,36 @@ class CameraSurveillance:
         
             while(not self.camera_stop):
 
-                ## If save video is done, but still recording and there is nothing else to record
-                ## Stop and save the recording, then notify user
+                if(self.image_queue.qsize() == 0):
+                    if(self.save_video):
+                        ## if queue size is 0 and save video is still on, just continue loop.
+                        ## sleep for a bit, then continue loop
+                        sleep(0.01)
+                        continue
+                    else:
+                        ## If save video flag is off
+                        if(self.record_out == None):
+                            ## if recording is off - do nothing.. just continue loop.
+                            sleep(0.1)
+                            continue
+                        else:
+                        ## if recording is still on and the queue is 0 with save video flag off
+                        ## Then close the recording.
+                            self.record_extra_frame_count = 0
+                            self.notify_users = True
+                            #self.record_out.release()
+                            self.record_out.stdin.close()
+                            self.record_out.stderr.close()
+                            self.record_out.wait(5)
+                            self.record_out.terminate()
 
+                            self.addCommentsffmpeg()
+                            self.video_comments = {}
+                            self.str_object_detected = ""
+                            self.record_out = None
+                                    
 
-                if(self.image_queue.qsize() == 0 or not self.save_video):
-                    sleep(0.1)
-                    continue
+                # init frame
                 frame = None
 
 
@@ -466,7 +489,7 @@ class CameraSurveillance:
 
             ## If new objects are found and save video flag isnt set, then start the stream into a video file.
             ## This is also where some "jerky" images occur, as these processes need to startup.
-            ## FUTURE WORK - MOVE THIS TO THE THREAD RUNNING THE SAVE VIDEO!.
+            
             if(total_obj_tracked > 0 ): ## Notify if new objects found.
                 if(not self.save_video):
                     self.save_video = True
@@ -514,18 +537,6 @@ class CameraSurveillance:
                 
 
                     self.save_video = False
-                    self.record_extra_frame_count = 0
-                    self.notify_users = True
-                    #self.record_out.release()
-                    self.record_out.stdin.close()
-                    self.record_out.stderr.close()
-                    self.record_out.wait(5)
-                    self.record_out.terminate()
-
-                    self.addCommentsffmpeg()
-                    self.video_comments = {}
-                    self.str_object_detected = ""
-                    self.record_out = None
                     
             
             self.obj_tracker.clear_tracker()
