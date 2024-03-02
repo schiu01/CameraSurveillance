@@ -1,0 +1,86 @@
+
+<html>
+  <head>
+    <title>Live Stream</title>
+    <meta http-equiv="Cache-Control" content="no-store" />
+  </head>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <body>
+
+
+    </style>
+    <script src="/surveillance/static/js/d3.v7.js"></script>
+    <script src="/surveillance/static/js/hls.js"></script>
+    <link rel="stylesheet" href="/surveillance/static/css/surveillance.css">
+    <script>
+        function openClick(loc) {
+            window.location = loc;
+        }
+    </script>
+        <div class="title">Camera Surveillance System - Suk Ching Steven Chiu - 3070 Final Project</div>
+        <div id="main_layout" class="main-layout">
+        <div id="menu-container" class="menu-container">
+            <div class="menu-items">
+                <div class="menu-item" onclick="openClick('/surveillance/')">Playback Videos</div>
+                <div class="menu-item-sel" onclick="openClick('/surveillance/live')">Live Stream!</div>
+                <div class="menu-item" onclick="openClick('/surveillance/admin_login')">Admin</div>
+                
+            </div>
+        </div>
+    <div><video class="video" id="video" controls autoplay playsinline></video></div>
+</div>
+      
+    </center>
+
+    <script>
+      var video = document.getElementById('video');
+      if (Hls.isSupported()) {
+        var hls = new Hls({
+          debug: false,
+        });
+        hls.loadSource('http://192.168.1.23:8888/surveillance/index.m3u8');
+        hls.attachMedia(video);
+        hls.on(Hls.Events.MEDIA_ATTACHED, function () {
+          video.muted = true;
+          video.play();
+        });
+      }
+      // hls.js is not supported on platforms that do not have Media Source Extensions (MSE) enabled.
+      // When the browser has built-in HLS support (check using `canPlayType`), we can provide an HLS manifest (i.e. .m3u8 URL) directly to the video element through the `src` property.
+      // This is using the built-in support of the plain video element, without using hls.js.
+      else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = 'http://192.168.1.23:8888/surveillance/index.m3u8';
+        video.addEventListener('canplay', function () {
+          video.play();
+        });
+      }
+      function setViewSize(evt) {
+            var viewHeight = window.innerHeight;
+            var viewWidth = window.innerWidth;
+            var viewWidth_str = (viewWidth - 30).toString() + "px";
+            
+            
+            var mlayout = d3.select("#main_layout");
+            var obj_video = d3.select("#video");
+            if(viewWidth > 2000) { viewWidth_str = "1980px"}
+            mlayout.style("width" ,  viewWidth_str)
+
+            if(viewWidth < 1400) { 
+                obj_video.style("width",(viewWidth-25))
+                obj_video.style("height",parseInt(360*(viewWidth-25)/640))
+
+            } else {
+                obj_video.style("width","1280")
+                obj_video.style("height","720")
+
+            }
+            
+        }
+
+          setViewSize();
+        window.addEventListener('resize', function(event) { setViewSize(event); }, true);
+
+
+    </script>
+</html>
+

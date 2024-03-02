@@ -1,4 +1,5 @@
 import os
+import logging
 """
     file_queue_deletion: This program is to remove files that are listed in /opt/surveillance/file_delete_queue/file_delete_queue.list
     The list is sent from delete button action in Web UI.
@@ -18,8 +19,17 @@ try:
             file_attr = line.split("/")
             if(file_attr[-1].endswith(".mp4") and file_attr[-1].startswith("raw_capture_")):
                 image_file = line.replace("raw_capture_","img_").replace(".mp4",".jpg")
-                os.remove(line)
-                os.remove(image_file)
+                
+
+                try:
+                    logging.info(f"Removing video file {line}")
+                    os.remove(line)
+                    logging.info(f"Removing image file {image_file}")
+                    os.remove(image_file)
+                except Exception as e:
+                    logging.warn(f"Error in removing file {line}")
+                    logging.warn(f"Error in removing file {image_file}")
+
         os.remove(tmp_queue_file)
 except Exception as e:
     print(f"Failed to rename file to temp file {e}")

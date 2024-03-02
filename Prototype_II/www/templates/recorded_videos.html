@@ -1,299 +1,365 @@
-<!--
-
-    Author: Steven Chiu
-    Purpose: Calendar function to group videos together
-
-    This code is written from ground up using D3
-
-    Some references to  https://www.geeksforgeeks.org/how-to-design-a-simple-calendar-using-javascript/ for inspiration and guidance only
-
-    HTTP Live Streaming Library provided by: https://hlsjs.video-dev.org/demo/basic-usage
-
-
--->
-
-<html>
-<head>
-    <title>Recorded Videos</title>
-</head>
-<!-- 
-        CSS Files for Calendar widget
-
--->
+<html><head><title>Playback Videos</title></head>
+<meta http-equiv="Cache-Control" content="no-store" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<script src="/surveillance/static/js/d3.v7.js"></script>
 <link rel="stylesheet" href="/surveillance/static/css/surveillance.css">
 
-<!--
-
-    D3 framework is from https://d3js.org/
-    Although used mostly for graphics with its d3 charting capabilities, I am using D3 for its ease of use to
-    retrieve files from the server and provides ability to parse the json and csv elements.
-
--->
-<script src="/surveillance/static/js/d3.v7.js"></script>
-
-<!-- 
-    HLS is HTTP Live Streaming. This module enables the <video> tag to work properly with HLS Streaming.
-    Provided by HTTP Live Streaming Library provided by: https://hlsjs.video-dev.org/demo/basic-usage
-
--->
-<script src="/surveillance/static/js/hls.js"></script>
-
-<!--
-    Custom build Surveillance javascript to enable various functions such as:
-    - Building of Calendar system
-    - Interfacing with video tags and playing video
-    - Refresh of calendar values and # of videos on each day and each hour.
-
-
--->
-<script src="/surveillance/static/js/surveillance.js"></script>
-
-
-
+<script>
+    function openClick(loc) {
+        window.location = loc;
+    }
+</script>
 
 <body>
-<!-- 
-    This Div tag provides the top Menu display.
-    Each div is activated to change menu using 'changeMenu' function in our javascript file.
+    <div class="title">Camera Surveillance System - Suk Ching Steven Chiu - 3070 Final Project</div>
 
--->    
-    <div class="top_menu_parent">
-        <div class="top_menu">
-            <div id="menu_recorded_videos" class="menu_cell cell-red"  onclick="changeMenu('menu_recorded_videos')">Recorded Videos</div>
-            <div id="menu_live" class="menu_cell" onclick="changeMenu('menu_live')">Live Stream</div>
-            <div id="menu_info" class="menu_cell" onclick="changeMenu('menu_other_info')">Other Info</div>
+    <div id="main_layout" class="main-layout">
+        <div id="menu-container" class="menu-container">
+            <div class="menu-items">
+                <div class="menu-item-sel" onclick="openClick('/surveillance/')">Playback Videos</div>
+                <div class="menu-item" onclick="openClick('/surveillance/live')">Live Stream!</div>
+                <div class="menu-item" onclick="openClick('/surveillance/admin_login')">Admin</div>
+                
+            </div>
+            
         </div>
-    
+        
+        <div id="calendar_container" class="calendar-container">
+            <div id="month-select" class="calendar-select">
+                <div class="calendar-month-item">2023-Dec</div>
+                <div class="calendar-month-item">2024-Jan</div>
+                <div class="calendar-month-item">2024-Feb</div>
+            </div>
+            <div id="calendar_days" class="calendar-days-container"></div>
+            <div id="hour_container" class="hour-container">
+            </div>            
+        </div>
+
+        <div id="playarea" class="play-area">
+            <div id="play_area_videolist" class="play-area-videolist">                   
+            </div>
+
+            <div id="play_area_video" class="play-area-video">
+                <center>
+                
+                <video id="video" autoplay controls playsinline class="video">
+                    
+                </video>
+                <div id="videoComment" style="text-align: left; width: 400px"></div>
+            </center>
+            </div>
+        </div>
+
+
+
+
     </div>
-    
-<script>
-    // Current Menu Item
-    var activeMenuId = "menu_recorded_videos"
 
 
-    // Pre-defined month names for Calendar
-    const months = [
-	"January",
-	"February",
-	"March",
-	"April",
-	"May",
-	"June",
-	"July",
-	"August",
-	"September",
-	"October",
-	"November",
-	"December"
-];
-    // Pre-defined week names for our calendar
-    const weekName = ["Sun", "Mon", "Tue", "Wed", "Thu","Fri", "Sat"];
-
-
-// Get the current Date as default; extract Year, Month, Date and current hour.
-let param_date = new Date();
-let param_year = param_date.getFullYear();
-let param_month = param_date.getMonth();
-let param_dom = param_date.getDate();
-let curr_hour = param_date.getHours();
-
-// Intialize a dictionary of videos by month, by hour.
-var videos_month = {}
-var videos_hour = {}
-
-// Full list of videos as we get from our json file.
-var videos = {}
-</script>    
-<style>
-    .carousel-container {
-        display: flex;
-        
-        overflow: hidden;
-        width: 640;
-        
-        scroll-behavior: smooth;
-        
-    }
-    .carousel-time-slot-container {
-        align-items: center;
-        width: 740px;
-    }
-    .carousel-item-container {
-        float: right;
-    }
-    .carousel-item {
-        padding: 10px;
-    }
-    .carousel-hour-container {
-        
-        display: grid;
-        grid-template-columns: repeat(10,auto);
-        
-        padding: 10px;
-    
-    }
-    .carousel-hour-item {
-        
-        margin: 10px;
-        padding: 5px;
-        border: 1px solid #000000;
-        background-color: rgb(0, 72, 154);
-        color: white;
-        border-radius: 15px;
-        width: 20px;
-        height: 20px;
-        align-items: center;
-        text-align: center;
-        vertical-align: middle;
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        font-size: 13px;
-        font-weight: bold;
-        
-    }
-    .carousel-time-slot-header {
-        text-align: center;
-    }
-    </style>
     <script>
-    var carousel_step_value = 0;
-    function btn_next() {
-        var carousel_container = document.getElementById("carousel-container");
-        var offsetLeft_orig = carousel_container.offsetLeft;
-        carousel_container.scrollLeft += 660;
-        var offsetLeft_new = carousel_container.offsetLeft;
-        if(offsetLeft_new != offsetLeft_orig) {
-            carousel_step_value++;
+        // Main Video = http://192.168.1.23/surveillance/static/recorded_videos/raw_capture_20240219100235.mp4
+    
+        var curr_time = new Date();
+        var param_year = curr_time.getFullYear();
+        var param_month = curr_time.getMonth();
+        var param_day = curr_time.getDate();
+        var param_hour = curr_time.getHours();
+        var param_minute = curr_time.getMinutes();
+        var month_days = [31,28,31,30,31,30,31,31,30,31,30,31]
+        var videos= {};
+        var videos_by_hour = {}
+        var videos_by_mins = {};
+        var month_name = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+
+        function setViewSize(evt) {
+            var viewHeight = window.innerHeight;
+            var viewWidth = window.innerWidth;
+            var viewWidth_str = (viewWidth - 30).toString() + "px";
+            
+            var mlayout = d3.select("#main_layout");
+            
+            var obj_video = d3.select("#video");
+            if(viewWidth > 2000) { viewWidth_str = "1980px"}
+            mlayout.style("width" ,  viewWidth_str)
+
+            if(viewWidth < 1400) { 
+                obj_video.style("width",(viewWidth-25))
+                obj_video.style("height",parseInt(360*(viewWidth-25)/640))
+
+            } else {
+                obj_video.style("width","1280")
+                obj_video.style("height","720")
+
+            }
+            
         }
-    
-    
-    }
-    function btn_prev() {
-        var carousel_container = document.getElementById("carousel-container");
-        var offsetLeft_orig = carousel_container.offsetLeft;
-        carousel_container.scrollLeft -= 660;
-        var offsetLeft_new = carousel_container.offsetLeft;
-        if(offsetLeft_new != offsetLeft_orig) {
-            carousel_step_value--;
+
+        function buildCalendarMonth() {
+            
+            var month_container = d3.select("#month-select")
+            month_container.selectAll("*").remove();
+            date_str = param_year + "-" + (param_month + 1).toString().padStart(2,'0') + "-01T00:00:00"
+            //console.log(date_str)
+            var make_date = new Date(date_str);
+            var make_date_year = make_date.getFullYear()
+            var make_date_mon = make_date.getMonth()
+            var make_date_day = make_date.getDate()
+
+            var el1 = month_container.append("div").attr("onclick","refreshDate("+make_date.getFullYear().toString() + "," + make_date.getMonth() +")")
+            if(make_date_year == param_year && make_date_mon == param_month) {
+                el1.attr("class","calendar-month-item-sel").text(make_date.getFullYear().toString() + "-" + month_name[make_date.getMonth()])
+            } else {
+                el1.attr("class","calendar-month-item").text(make_date.getFullYear().toString() + "-" + month_name[make_date.getMonth()])
+            }
+            
+            
+
+            var prior_month = new Date(new Date(make_date.setMonth(make_date.getMonth() - 1)).setDate(make_date.getDate() )); 
+            var make_date_year = prior_month.getFullYear()
+            var make_date_mon = prior_month.getMonth()
+            var make_date_day = prior_month.getDate()
+
+            
+            var el2 = month_container.append("div").attr("onclick","refreshDate("+prior_month.getFullYear().toString() + "," + prior_month.getMonth() +")")
+            if(make_date_year == param_year && make_date_mon == param_month) {
+                el2.attr("class","calendar-month-item-sel").text(prior_month.getFullYear().toString() + "-" + month_name[prior_month.getMonth()])
+            } else {
+                el2.attr("class","calendar-month-item").text(prior_month.getFullYear().toString() + "-" + month_name[prior_month.getMonth()])
+            }
+
+            var prior_month_2 = new Date(new Date(make_date.setMonth(make_date.getMonth() - 1)).setDate(make_date.getDate() )); 
+            var make_date_year = prior_month_2.getFullYear()
+            var make_date_mon = prior_month_2.getMonth()
+            var make_date_day = prior_month_2.getDate()
+            var el3 = month_container.append("div").attr("onclick","refreshDate("+prior_month_2.getFullYear().toString() + "," + prior_month_2.getMonth() +")")
+            if(make_date_year == param_year && make_date_mon == param_month) {
+            
+                el3.attr("class","calendar-month-item-sel").text(prior_month_2.getFullYear().toString() + "-" + month_name[prior_month_2.getMonth()])
+            } else {
+                el3.attr("class","calendar-month-item").text(prior_month_2.getFullYear().toString() + "-" + month_name[prior_month_2.getMonth()])
+            }
+
+        }
+        
+
+
+        function buildCalendarDays(year, month) {
+            var cal_days_container = d3.select("#calendar_days")
+            cal_days_container.selectAll("*").remove()
+            cal_days_container.append("div").attr("class","calendar-item-day-heading").text("Day");
+            total_days = month_days[month];
+            if((year%4 == 0) && (month == 1)) {
+                total_days = 29
+            }
+
+            for(var i=1; i<=total_days; i++) {
+
+                var day_el = cal_days_container.append("div").attr("onclick","clickDay("+ i +")")
+                if(i == param_day) {
+                    day_el.attr("class","calendar-item-day-sel");
+                } else {
+                    day_el.attr("class","calendar-item-day");
+                }
+                
+                day_el.append("div").text(i.toString().padStart(2,'0'))
+                date_string = param_year.toString().padStart(2,'0') +'-' + (param_month+1).toString().padStart(2,'0') + "-" + i.toString().padStart(2,'0')
+                day_el.append("div").attr("class","calendar-item-day-total").text(videos[date_string])
+            }
+        }
+        function buildHour() {
+            hour_container = d3.select("#hour_container")
+            hour_container.selectAll("*").remove()
+            hour_container.append("div").attr("class","hour-item-heading").text("Hour")
+            for(var h=0; h<24; h++) {
+                var hr_el = hour_container.append("div").attr("onclick","clickHour("+ h +")");
+                if(h == param_hour) {
+                    hr_el.attr("class","hour-item-sel");
+                } else {
+                    hr_el.attr("class","hour-item");
+                }
+                
+                hour_string = h.toString().padStart(2,'0')
+                hr_el.append("div").text(hour_string)
+                hr_el.append("div").attr("class","hour-item-total").text(videos_by_hour[hour_string])
+
+            }
+
+        }
+        function buildMins() {
+            var video_list_container = d3.select("#play_area_videolist");
+            video_list_container.selectAll("*").remove()
+            total_videos = 0
+            Object.entries(videos_by_mins).forEach(([key, value]) => {
+                total_videos += value.length
+            }) ;
+            if(total_videos > 0) {
+                video_list_container.style("grid-template-columns","repeat("+total_videos.toString()+", auto)")
+
+            } else {
+                video_list_container.style("grid-template-columns","repeat(1, auto)")
+                video_list_container.append("div").text("No Videos Found!")
+
+            }
+            console.log(videos_by_mins)
+            var video_count = 0;
+            Object.entries(videos_by_mins).forEach(([key, value]) => {
+                
+                value.forEach(tn_val => {
+                    var vl_timeline = video_list_container.append("div").attr("class","play-area-videolist-tn")
+                    vl_timeline.attr("id", video_count);
+                    vl_timeline.attr('obj',JSON.stringify(tn_val));
+                    vl_timeline.attr("onclick","playVideo('/surveillance/static/recorded_videos/" + tn_val['filename'] +"','"+ video_count+"')");
+                    vl_timeline.append("div").attr("class","play-area-videolist-tn-time").text(tn_val["time"])
+                    var tn_el = vl_timeline.append("div").append("center")
+                    var filename = tn_val['filename'].replace("raw_capture_","img_").replace(".mp4",".jpg")
+                    tn_el.append("img").attr("src","/surveillance/static/recorded_images/" + filename).attr("width",160).attr("height",90)
+                    vl_timeline.append("div").attr("class","play-area-videolist-tn-comment").text(tn_val['title'])
+                    if(video_count == 0) {
+                        var vid = document.getElementById("video");
+                        vid.src = "/surveillance/static/recorded_videos/" + tn_val['filename'];
+                        vid.poster = "/surveillance/static/recorded_images/" + filename;
+                        
+                        var comment_el = d3.select("#videoComment");
+                        var comment_text = "<div><B>Title: </B>" + tn_val["title"] + "<BR>"
+                            comment_text = comment_text + "<B>Time of recording: </B>" + tn_val["time"] + "<br>"
+                            comment_text = comment_text + "<B>File Name: </B>" + tn_val["filename"] + "<br>"
+                            comment_text = comment_text + "<B>Duration: </B>" + tn_val["duration"] + "<br>"
+                            comment_text = comment_text + "<B>Bit Rate: </B>" + (parseInt(tn_val["bit_rate"])/1024).toFixed(2) + "kbps<br>"
+                            comment_text = comment_text + "<B>File Size: </B>" + tn_val["file_size"] + "<br>"
+                            comment_text = comment_text + "<B>File Format: </B>" + tn_val["file_format"] + "<br>"
+                            comment_text = comment_text + "<B>Video Commentary: </B>" + tn_val["comment"] + "<br>"
+                            comment_text = comment_text + "</div>"
+                            
+            
+            comment_el.html(comment_text);
+
+                    }
+                    video_count++;
+
+                })
+
+            })
+
+
         }
 
-    
-    
-    }
+        function refreshCalendar() {
+            
+            url = "/surveillance/list_videos_by_day?year=" + param_year + "&month=" + (param_month+1) + "&day=" + param_day
+            d3.json(url).then(function(element) {
+                videos= element
+                //createHourlyList(param_year, param_month, day);
+                
+                buildCalendarDays(param_year, param_month);
+                
+            })
 
-    function scrollPicStep(pic_step) {
-        var carousel_container = document.getElementById("carousel-container");
+        }
+        // Refresh Hour - provides list of videos for that day by the hour.
+        function refreshHour() {
+            hour_container = d3.select("#hour_container")
+            hour_container.selectAll("*").remove()
+            hour_container.append("div").text("Refreshing Video Counts...")
+            
+            url = "/surveillance/list_videos_by_day_hour?year=" + param_year + "&month=" + (param_month+1) + "&day=" + param_day
+            d3.json(url).then(function(element) {
+                videos_by_hour= element
+                //createHourlyList(param_year, param_month, day);
+                buildHour()
 
-        var num_steps = pic_step - carousel_step_value;
-        carousel_step_value = pic_step;
-        carousel_container.scrollLeft += num_steps * 660  ;
-    
-    }
+                
+            })
+        }
 
+        function refreshMins() {
+            var video_list_container = d3.select("#play_area_videolist");
+            video_list_container.selectAll("*").remove()
+            video_list_container.style("grid-template-columns","repeat(1, auto)")
+                video_list_container.append("div").text("Retrieving Video Listing...")
+
+            url = "/surveillance/list_videos_by_hour_mins?year=" + param_year + "&month=" + (param_month+1) + "&day=" + param_day + "&hour=" + (param_hour)
+            d3.json(url).then(function(element) {
+                videos_by_mins= element
+                buildMins();
+        
+        })
+
+        }
+        function refreshDate(year, month) {
+            var curr_time = new Date();
+            var curr_year = curr_time.getFullYear();
+            var curr_month = curr_time.getMonth();
+            var curr_day = curr_time.getDate();
+            var curr_hour = curr_time.getHours();
+            if( curr_year == year && curr_month == month) {
+                param_day = curr_day;
+                param_hour = curr_hour;
+            } else {
+                param_day = 1;
+                param_hour = 0;
+
+            }
+            param_year = year;
+            param_month = month;
+            refreshAll();
+            }
+
+        function refreshAll() {
+            refreshCalendar();
+            refreshHour();
+            refreshMins();
+            buildCalendarMonth();
+
+        }
+        
+
+        function clickDay(pDay) {
+            param_day = pDay;
+            param_hour = 0
+            refreshCalendar();
+            refreshHour();
+            refreshMins();
+
+        }
+        function clickMonth(month) {
+
+        }
+        function clickHour(hour) {
+            param_hour = hour;
+            refreshHour();
+            refreshMins();
+
+        }
+        function playVideo(filename, fileid) {
+            var vid = document.getElementById("video");
+            vid.src = filename;
+            vid.play();
+            
+            var comment_el = d3.select("#videoComment");
+            var fileid_tag = document.getElementById(fileid.toString())
+            var obj = JSON.parse(fileid_tag.getAttribute('obj'))
+            var comment_text = "<div><B>Title: </B>" + obj["title"] + "<BR>"
+                comment_text = comment_text + "<B>Time of recording: </B>" + obj["time"] + "<br>"
+                comment_text = comment_text + "<B>File Name: </B>" + obj["filename"] + "<br>"
+                comment_text = comment_text + "<B>Duration: </B>" + obj["duration"] + "<br>"
+                comment_text = comment_text + "<B>Bit Rate: </B>" + (parseInt(obj["bit_rate"])/1024).toFixed(2) + "Kbps<br>"
+                comment_text = comment_text + "<B>File Size: </B>" + obj["file_size"] + "<br>"
+                comment_text = comment_text + "<B>File Format: </B>" + obj["file_format"] + "<br>"
+                comment_text = comment_text + "<B>Video Commentary: </B>" + obj["comment"] + "<br>"
+                comment_text = comment_text + "</div>"
+                
+            
+            comment_el.html(comment_text);
+            
+        }
+
+        setViewSize();
+        window.addEventListener('resize', function(event) { setViewSize(event); }, true);
+
+
+
+        refreshAll()
     </script>
-
-
-<script>
-// Populate Carousel images
-
-
-</script>
-
-<!--
-    Main Layout - for a display of videos when a video selection is clicked.
-    Calendar: Placeholder where our javascript will interact with this DIV and build the grid.
-
--->
-<div class="main_layout">
-    <div id="video_play" class="video_play">
-        <video id="video_play_area" class="video_play" controls></video>
-    </div>
-    <div id="calendar" class="calendar">
-    <div id="calendar_container" class="calendar-container">
-        <div class="calendar-month-head">January 2024</div>
-        <div class="calendar-week-head">Prev</div>
-        <div class="calendar-week-head">Next</div>
-        <div class="calendar-week-head">Sun</div>
-        <div class="calendar-week-head">Mon</div>
-        <div class="calendar-week-head">Tue</div>
-        <div class="calendar-week-head">Wed</div>
-        <div class="calendar-week-head">Thur</div>
-        <div class="calendar-week-head">Fri</div>
-        <div class="calendar-week-head">Sat</div>
-    </div>
-    </div>
-    <div id="video_list_container" class="video-list-container"><div id="video_list_main"></div></div>
-    <div id="other_info_container" class="other-info-container">Other info</div>
-    <div id="carousel_main" style="display: grid; justify-items: center; grid-template-columns: auto;">
-    <div  id="carousel-time-slot-container"  class="carousel-time-slot-container" style="border: 2px solid #000000; background-image: linear-gradient(to bottom , rgb(206, 228, 255), white); border-radius: 5px;">
-        <div id="carousel_hour" style="display: grid; grid-template-columns: repeat(62,20px); justify-self: center; align-items: center;padding:20px; scroll-behavior: smooth;overflow:hidden; cursor: move"></div>
-        <div></div>
-    </div>
-
-    <div style="display: grid; grid-template-columns: 50px auto 50px; justify-self: center;align-items: center;">
-        <div><div><img src="static/images/left.png" width="50" height="50" style="cursor:pointer" onclick="btn_prev()"></div></div>
     
-    <div class="carousel-container" id="carousel-container">
-    </div>
-    <div><div><img src="static/images/right.png" width="50" height="50" style="cursor:pointer" onclick="btn_next()"></div></div>
-    </div>
-
-</div>
-</div>
-
-<!--
-
-Carousel Start
-
-
--->
-<script>
-    var pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
-    var elmt =  document.getElementById("carousel_hour");
-    function dragMouseDown(e) {
-        e = e || window.event;
-        e.preventDefault();
-        pos3 = e.clientX;
-        document.onmouseup = closeDragElement;
-        document.onmousemove = elementDrag;
-        //elmt.scrollLeft += 50;
-        console.log("test")
-        
-    }
-    function elementDrag(e) {
-        e = e || window.event;
-        e.preventDefault();
-        pos1 = pos3 - e.clientX;
-        
-        elmt.scrollLeft += pos1 ;
-        
-        
-     }
-    function closeDragElement(e) {
-        document.onmouseup = null;
-        document.onmousemove = null;
-    }
-    elmt.onmousedown = dragMouseDown;
-    </script>    
-
-<body>
-<div class="main-layout">
-</div>
-
 
 </body>
-<script>
-
-
-</script>
-</body>
-
-<script>
-
-    // Refresh the Calendar; will be based on default date to start.
-
-    refreshCalendar();
-    showRecordedVideoContent();
-
-
-</script>
-</html>

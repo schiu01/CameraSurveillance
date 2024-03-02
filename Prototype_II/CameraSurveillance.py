@@ -16,9 +16,12 @@ import ffmpeg
 import threading
 from Notification import ProjectAlert
 import signal
+import logging
 c =  threading.Condition()
-process = None
-http_start = False
+# global process 
+# global http_start 
+# process = None
+# http_start = False
 
 
 
@@ -65,6 +68,7 @@ class CameraSurveillance:
         
         ## Stop the camera loop
         self.camera_stop = False
+        self.monitoring_stop = False
         
         ## custom background mask class. input is background masking type = mog2 or absdiff
         self.background_mask = BackgroundSubtraction(bs_type=self.config["background_subtraction_method"])
@@ -115,9 +119,28 @@ class CameraSurveillance:
                                   notify_user=self.config.get("notification_email")
                                   )
         self.alert_words = self.config["notification_alert_hot_words"]
+
+
+
+        ## process variable for external ffmpeg run
+        self.process = None
+        self.http_start = False
+
+
+        ## Camera Source Error Flag
+        self.camera_source_error_flag = False
+
+        ### thread monitoring - threadname prefix
+        self.thread_name_prefix = "camsurvapp_"
+
+        self.thread_list = []
+
+        logging.basicConfig(format='%(asctime)s|%(levelname)s|%(message)s', filename=f"camera_surveillance_{self.datetime}.log",filemode='a', level=logging.INFO)
     def end_all(self, *args):
         print("Signal Caught, Gracefully Shutting Down!")
+        logging.warn("Signal Caught, Gracefully Shutting Down!")
         self.camera_stop = True
+        self.monitoring_stop = True
     def alerting(self):
         """
             This Thread invoked process is to process Notifcations system.
@@ -149,10 +172,94 @@ class CameraSurveillance:
                         self.alert.send_email(subject, message, image_file)
             except Exception as e:
                 print(f"Queue / Alert Processing Error {e}")
+                logging.warn(f"Queue / Alert Processing Error {e}")
                 sleep(10)
 
     def send_alert_queue(self, object):
         self.notify_queue.put(object, block=False)
+    def self_monitoring(self):
+        """
+            This module (added late in project) is to monitor the health of the overall application.
+            20-Feb-2024: Recent continued breaking of application due to network issues on camera caused the application to simply hang.
+            This thread will monitor all threads, 
+
+            Restart all threads if:
+                - if one is dead it kills all the other threads and restarts
+                - if the source camera fails retries at least 5 times, then it source camera flag is set to True, and this thread will kill all threads and restart
+            
+        """
+        while(not self.monitoring_stop):
+            # 1: check self.camera_source_error_flag = True; then kill all process and restart.
+            if(self.camera_source_error_flag):
+                logging.warn("[self_monitoring] camera source error flag detected false - setting camera stop to true to shutdown threads")
+                self.camera_stop = True
+                ## Kill process and let the parent process restart.
+                sleep(5)
+                logging.warn("[self_monitoring] Killing self process!")
+                os.kill(threading.current_thread().native_id)
+            else:
+                sleep(10)
+                ## Sleepi
+            #     sleep(10)
+            # thread_status = {}
+            
+            # for tname in self.thread_list:
+            #     thread_found_alive = False
+            #     thread_status[tname] = {}
+            #     curr_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            #     for thread in threading.enumerate():
+            #         if(thread.name == tname):
+            #             if(thread.is_alive()):
+            #                 thread_found_alive = True
+            #                 thread_status[tname]['status'] = "Alive"
+            #                 thread_status[tname]['ident'] = thread.ident
+            #                 thread_status[tname]['native_id'] = thread.native_id
+            #                 thread_status[tname]['check_timestamp'] = curr_date
+                            
+
+            #     if(not thread_found_alive):
+            #         th1 = None
+            #         thread_status[tname]['status'] = "Not Found Alive!"
+            #         if("read_thread" in tname):
+            #             if(self.cap.isOpened()):
+            #                 self.cap.release()
+            #             self.init_capture()
+            #             th1 = Thread(name=f"{self.thread_name_prefix}_read_thread", target=self.loop_camera_frames)
+            #         elif("save_frame" in tname):
+            #             th1 = Thread(name=f"{self.thread_name_prefix}_save_frame", target=self.save_video_frames)
+            #         elif("http_stream" in tname):
+            #             th1 = Thread(name=f"{self.thread_name_prefix}_http_stream", target=self.http_stream)
+            #         elif("alerting" in tname):
+            #             th1 = Thread(name=f"{self.thread_name_prefix}_alerting", target=self.alerting )
+
+            #         logging.info(f"Restarting Thread: {tname}")
+            #         print(f"Restarting Thread: {tname}")
+            #         try:
+            #             if(th1 == None):
+            #                 logging.error(f"{tname} not found in list of accepted thread names")
+            #             else:
+            #                 th1.start()
+            #                 curr_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            #                 thread_status[tname]['status'] = "Restarted"
+            #                 thread_status[tname]['ident'] = th1.ident
+            #                 thread_status[tname]['native_id'] = th1.native_id
+            #                 thread_status[tname]['check_timestamp'] = curr_date
+            #                 logging.info(thread_status[tname])
+
+            #         except Exception as e:
+            #             logging.error(f"Error in starting thread {e}")
+                    
+
+            # # for t in thread_status:
+            # #     logging.info(f"[monitoring] Status of {t}")
+            # #     for k in thread_status[t]:
+            # #         logging.info(f"[monitoring] {t} : {k} : {thread_status[t][k]}")
+            # self.camera_stop = False
+            # self.camera_source_error_flag = False
+            # sleep(10)
+
+
+        pass
     def start(self):
         """
             Starts the Camera Surveillance system
@@ -163,20 +270,31 @@ class CameraSurveillance:
             Thread #4 - Notification
         """
         self.init_capture()
-        th1 = Thread(name="read_thread", target=self.loop_camera_frames)
+        th1 = Thread(name=f"{self.thread_name_prefix}_read_thread", target=self.loop_camera_frames)
         th1.start()
-        th2 = Thread(name="save_frame", target=self.save_video_frames)
+        self.thread_list.append(f"{self.thread_name_prefix}_read_thread")
+        th2 = Thread(name=f"{self.thread_name_prefix}_save_frame", target=self.save_video_frames)
         th2.start()
-        th3 = Thread(name="http_stream", target=self.http_stream)
+        self.thread_list.append(f"{self.thread_name_prefix}_save_frame")
+        th3 = Thread(name=f"{self.thread_name_prefix}_http_stream", target=self.http_stream)
         th3.start()
+        self.thread_list.append(f"{self.thread_name_prefix}_http_stream")
         if(self.notify_users):
             print("Starting Notifications System...")
-            th4 = Thread(name="alerting", target=self.alerting )
+            logging.info("Starting Notifications System...")
+            th4 = Thread(name=f"{self.thread_name_prefix}_alerting", target=self.alerting )
             th4.start()
+            self.thread_list.append(f"{self.thread_name_prefix}_alerting")
         else:
-            print("Notification System is not active.")
-        th1.join()
-        th2.join()
+            logging.info("Notification System is not active.")
+        
+        th4 = Thread(name="camsurv_monitoring", target=self.self_monitoring)
+        th4.start()
+        
+        th4.join()
+
+        ## if loop camera fails - everything fails.
+        #th2.join()
 #        th3.join()
         #self.loop_camera_frames()
 
@@ -247,16 +365,34 @@ class CameraSurveillance:
         self.ffmpeg = 'ffmpeg'
         self.dimension = '{}x{}'.format(self.frame_resized["width"],self.frame_resized["height"])
 
+
+        ## flag if we have issues with camera source
+        self.blank_frame = np.zeros((self.frame_size["height"], self.frame_size["width"],3),dtype="uint8")
+         
+
     def retrieve_frame(self):
         """
             Image Retrieval from Camera.
         """
-        return self.cap.read()
+        if(self.cap.isOpened):
+            return self.cap.read()
+        else:
+            logging.error("[retrieve_frame] self.cap is closed! returning false.")
+            return None, self.blank_frame
+        
         
     def queue_frame(self, frame):
         self.image_queue.put_nowait(frame)
     def save_video_frames(self):
+            
+            """
+                This module saves video frames.
+                1. if there is an initiation of save video flag and record out isnt initalized, it will initialize it
+                2. grabs video frames from queue and saves.
+            
+            """
         
+            save_frame_errors = 0
             while(not self.camera_stop):
 
                 if(self.image_queue.qsize() == 0):
@@ -279,7 +415,7 @@ class CameraSurveillance:
                             #self.record_out.release()
                             self.record_out.stdin.close()
                             self.record_out.stderr.close()
-                            self.record_out.wait(5)
+                            self.record_out.wait(15)
                             self.record_out.terminate()
 
                             self.addCommentsffmpeg()
@@ -307,6 +443,7 @@ class CameraSurveillance:
                         self.output_file = f"recorded_videos/vidtmp_raw_capture_{self.datetime}.mp4"
                         self.title_image = f"recorded_images/img_{self.datetime}.jpg"
                         print(f"Saving Video to {self.output_file}")
+                        logging.info(f"Saving Video to {self.output_file}")
                         cv2.imwrite(self.title_image,frame)
                         
                         command = [self.ffmpeg,
@@ -331,18 +468,32 @@ class CameraSurveillance:
                     try:       
                         #self.record_out.write(frame)
                         self.record_out.stdin.write(frame.tostring())
+                        save_frame_errors = 0
                     except Exception as e:
                         print(f"There was an error capturing frame {e}")
+                        logging.error(f"[save_video_frames] There was an error saving frame {e}")
+                        save_frame_errors += 1
+                        if(save_frame_errors > 50):
+                            logging.error(f"[save_video_frames] Save Frame Errors exceeded 50. restarting app.")
+                            self.camera_stop = True
     def http_stream(self):
+        """
+            Module to start streaming to RTSP Server.
+            if the process isnt started, it invokes ffmpeg
+            if the process has stopped, it restarts it
+            checks every 1 second, and exits 
+        """
         print("Start Stream to RTSP...")
+        logging.info("Start Stream to RTSP...")
+        # global http_start
+        # global process
+
         while(not self.camera_stop):
-            global http_start
-            global process
             
-            if(process == None):
+            if(self.process == None):
                 
-                http_start = False
-                process = (
+                self.http_start = False
+                self.process = (
                     ffmpeg
                     .input('pipe:', hwaccel_output_format="cuda", format='rawvideo',codec="rawvideo", pix_fmt='bgr24', s='{}x{}'.format(self.frame_resized["width"], self.frame_resized["height"]))
                     .output(
@@ -359,11 +510,11 @@ class CameraSurveillance:
                     .overwrite_output()
                     .run_async("ffmpeg_g",  pipe_stdin=True, quiet=True)
                 )
-                http_start = True
+                self.http_start = True
                 
             else:
-                if(process.poll() is not None):
-                    http_start = False
+                if(self.process.poll() is not None):
+                    self.http_start = False
                     process = (
                         ffmpeg
                         .input('pipe:', hwaccel_output_format="cuda", format='rawvideo',codec="rawvideo", pix_fmt='bgr24', s='{}x{}'.format(self.frame_resized["width"], self.frame_resized["height"]))
@@ -381,17 +532,7 @@ class CameraSurveillance:
                         .run_async("ffmpeg_g", pipe_stdin=True, quiet=True)
                     )
                             
-                    # command = [
-                    #     "ffmpeg_g","hwaccel_output_format=cuda", 
-                    #     "-i","-",
-                    #     "-c:v","h264",
-                    #     "-g","64",
-                    #     "-f","rtsp",
-                    #     "-rtsp_transport","udp",
-                    #     "rtsp://0.0.0.0:8554/surveillance"
-                    # ]
-                    # process = sp.Popen(command,  stdin=sp.PIPE, stderr=sp.PIPE)
-                    http_start = True
+                    self.http_start = True
                 else: 
                     sleep(1)
 
@@ -404,33 +545,74 @@ class CameraSurveillance:
             
         """
         print("Starting Camera Feed Loop...")
+        logging.info("Starting Camera Feed Loop...")
+        # global http_start
+        # global process
         retries = 0
         while(not self.camera_stop):
+            
             try:
                 ret, frame = self.retrieve_frame()
-                if(ret):
-                    if(frame.size == 0):
-                        break
-                    pframe = self.process_frame(frame)
-                    if(self.save_video):
-                        self.queue_frame(pframe)
-
-                    if(http_start):
+                if(not ret):
+                    frame = self.blank_frame
+                    self.camera_source_error_flag = True
+                    retries += 1
+                    if(retries > 50):
                         try:
-                            process.stdin.write(pframe.tobytes())
-                            #outs, errs = process.communicate(input=pframe.tobytes(), timeout=5)
-                        except Exception as e:
-                            print(e)
-                            print("Killing Process...")
-                            process.kill()
+                            self.cap.release()
+                            retries = 0
+                        except:
                             pass
-                retries = 0
+                        self.init_capture()
+                    logging.error(f"[loop_camera_frames] Return Flag from Retrieve Frame has error!.. ret != true - Retrying # {retries}")
+                    print(f"[loop_camera_frames] Return Flag from Retrieve Frame has error!.. ret != true - Retrying # {retries}")
+                else:
+                    if(retries > 0):
+                        logging.info(f"[loop_camera_frames] Returned True after {retries} retries!")
+                        print(f"[loop_camera_frames] Returned True after {retries} retries!")
+                    self.camera_source_error_flag = False
+                    retries = 0
+
+                ## Continue processing - even if its blank. 
+                   
+                if(frame.size == 0):
+                    print("Retrieved Frame Size of 0!.")
+                    continue
+
+                pframe = self.process_frame(frame)
+                
+                if(self.save_video):
+                    self.queue_frame(pframe)
+
+                if(self.http_start):
+                    try:
+                        self.process.stdin.write(pframe.tobytes())
+                        #outs, errs = process.communicate(input=pframe.tobytes(), timeout=5)
+                    except Exception as e:
+                        print(e)
+                        print("Killing Process...")
+                        logging.error(f"[loop_camera_frames] Killing Process, there was an error writing to process's stdin. {e}")
+                        try:
+                            self.process.kill()
+                        except Exception as e:
+                            print("Failed to Kill process")
+                            print(str(e))
+                            pass
+                        self.process = None
+                        self.http_start = False
+                        pass
+                
+
+                        
+                            
+                
             except Exception as e:
                 retries += 1
                 if(retries > 10):
                     print(str(e))
                     self.camera_stop = True
-                    raise(Exception("Error in Frame Loop!"))
+                    logging.error(f"[loop_camera_frames] Return Flag from Retrieve Frame has error!.. ret != true - Retrying # {retries}")
+                    raise(Exception("Error from Frame Loop"))
                 
 
         self.pool.close()
@@ -494,35 +676,7 @@ class CameraSurveillance:
                 if(not self.save_video):
                     self.save_video = True
                     self.str_object_detected = str_object_detected
-
-
-                    # // 
-                    # The portion below is moved to thread-based approach, to invoke ffmpeg when an object is detected
-                    # This move resolves the issue of frame-freeze for a second or two when an object is detected
-                    # //
                     
-                    # self.datetime = datetime.now().strftime("%Y%m%d%H%M%S")
-                    # self.output_file = f"recorded_videos/vidtmp_raw_capture_{self.datetime}.mp4"
-                    # self.title_image = f"recorded_images/img_{self.datetime}.jpg"
-                    # cv2.imwrite(self.title_image,resized_frame)
-                    
-                    # command = [self.ffmpeg,
-                    #         '-y',
-                    #         '-f', 'rawvideo',
-                    #         '-vcodec','rawvideo',
-                    #         '-s', self.dimension,
-                    #         '-pix_fmt', 'bgr24',
-                    #         '-r', '15',
-                    #         '-i', '-',
-                    #         "-metadata",f"title={str_object_detected}",
-                    #         '-vcodec','h264',
-                    #         #'-vcodec','mpeg4',
-                    #         '-pix_fmt',"yuv420p",
-                    #         '-crf','23',
-                    #         '-b:v', '5000k',
-                    #         self.output_file ]
-                    # self.record_out = sp.Popen(command, stdin=sp.PIPE, stderr=sp.PIPE)
-                    # self.video_title = str_object_detected
                 
         else:
 
@@ -541,17 +695,6 @@ class CameraSurveillance:
             
             self.obj_tracker.clear_tracker()
                     
-
-                
-        #contours, hierarchy = cv2.findContours(fg_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-        # for i, ctr in enumerate(contours):
-        #     ctr_area = cv2.contourArea(ctr)
-        #     if(ctr_area > 100):
-        #         ctr_resized = np.multiply(ctr, self.fgmask_ratio).astype(int)
-        #         cv2.polylines(resized_frame,ctr_resized, True, (0,0,255), 2 )
-
-
-
         if(self.debug):
 
             
@@ -645,7 +788,7 @@ class CameraSurveillance:
         output_file = self.output_file.replace("vidtmp_","")
         for c in self.video_comments:
             comment += c + "\n"
-        print(f"Updating Video with Comments: {comment}")
+        logging.info(f"Updating Video with Comments: {comment}")
         command = [self.ffmpeg,
         '-i', self.output_file,
         '-c','copy',

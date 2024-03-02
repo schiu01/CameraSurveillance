@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from email.message import EmailMessage
 from email.utils import make_msgid
 import mimetypes
-
+import logging
 class ProjectAlert:
     def __init__(self, **kwargs):
         self.tracker = {"total_emails_sent": 0, "last_sent": None}
@@ -40,8 +40,10 @@ class ProjectAlert:
     def send_email(self, subject, message, image_file=None):
         if(not self.check_availability()):
             print("Limit Exceeded!")
+            logging.warn("[Notification] Limited Exceeded for 1 Per minute.")
             return
         self.update_tracker()
+        logging.info("Sending Notification...")
         print("Sending Notification...", end="")
         try:
             msg = EmailMessage()
@@ -119,62 +121,6 @@ class ProjectAlert:
                 server.quit()
                 print("Done")
         except Exception as e:
-            print("Send Notification Failed!")
-            print(e)
+            logging.error("Send Notification Failed!")
+            logging.error(str(e))
             
-
-        # the message is ready now
-        # you can write it to a file
-        # or send it using smtplib
-
-
-    def send_email1(self, subject, message, image_file=None):
-        if(not self.check_availability()):
-            print("Limit Exceeded!")
-            return
-        self.update_tracker()
-        print("Sending Notification...", end="")
-        try:
-            from_address = self.email_user
-            to_address = self.to_user
-            
-
-    ##https://mailmeteor.com/blog/gmail-smtp-settings
-
-
-
-            # Create message container - the correct MIME type is multipart/alternative.
-            msg = MIMEMultipart('alternative')
-            msg['Subject'] = f"Alert: {subject}"
-            msg['From'] = self.email_user
-            msg['To'] = self.to_user
-            msg['Date'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-            # Create the message (HTML).
-            html = f"Alert: {subject}<P>"
-            for msg in message:
-                html += msg + "<br>"
-
-            # Record the MIME type - text/html.
-            part1 = MIMEText(html, 'html')
-
-            # Attach parts into message container
-            msg.attach(part1)
-
-            # Credentials
-            username = self.email_user
-            password =  self.smtp_pass
-
-            # Sending the email
-            ## note - this smtp config worked for me, I found it googling around, you may have to tweak the # (587) to get yours to work
-            server = smtplib.SMTP('smtp.gmail.com', 587)
-            server.ehlo()
-            server.starttls()
-            server.login(username,password)
-            server.sendmail(from_address, to_address, msg.as_string())
-            server.quit()
-            print("Done")
-        except Exception as e:
-            print("Failed")
-            print(e)
-

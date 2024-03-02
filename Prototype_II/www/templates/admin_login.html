@@ -46,11 +46,20 @@ function submitForm() {
 
 </script>
 <body>
-    <div class="top_menu_parent">
-        <div class="top_menu">
-            <div id="menu_recorded_videos" class="menu_cell"  onclick="goRecordedPage()">Recorded Videos</div>
-            <div id="menu_live" class="menu_cell" onclick="goRecordedPage()">Live Stream</div>
-            <div id="menu_info" class="menu_cell cell-red" >Other Info</div>
+    <script>
+        function openClick(loc) {
+            window.location = loc;
+        }
+    </script>
+        <div class="title">Camera Surveillance System - Suk Ching Steven Chiu - 3070 Final Project</div>
+        <div id="main_layout" class="main-layout">
+        <div id="menu-container" class="menu-container">
+            <div class="menu-items">
+                <div class="menu-item" onclick="openClick('/surveillance/')">Playback Videos</div>
+                <div class="menu-item" onclick="openClick('/surveillance/live')">Live Stream!</div>
+                <div class="menu-item-sel" onclick="openClick('/surveillance/admin_login')">Admin</div>
+                
+            </div>
         </div>
         <div>
 
@@ -62,8 +71,10 @@ function submitForm() {
                 
             </form>
             <div>{{ data }}</div>
-                </div>
+                
     
-    </div>
+        </div>
+        
+    
 </body>
 </html>

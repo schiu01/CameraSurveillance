@@ -259,6 +259,9 @@ def admin():
         return render_template("admin.html", data={"username": user, "message": ""})
     else:
         return render_template("admin_login.html", data=f"Failed Login User/Password!")
+@app.route("/live")
+def live():
+    return render_template("live.html")
     
 @app.route("/playvideo")
 def playvideo():
