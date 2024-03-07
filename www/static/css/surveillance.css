@@ -1,0 +1,247 @@
+body {
+    margin: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+.title {
+    background-color: rgb(0, 81, 152);
+    color: white;
+    margin: 0;
+    padding: 3px;
+}
+.main-layout {
+    margin: 0px;
+    padding: 5px;
+    
+    vertical-align: top;
+    
+}
+.menu-container {
+    padding: 10px;
+    font-size: 14px;
+    display: grid;
+    grid-template-columns: auto auto;
+    
+
+}
+.calendar-container {
+    padding: 10px;
+    margin: 0px;
+    font-size: 14px;
+    
+    border: 1px solid black;
+    border-radius: 10px;
+    display: grid;
+    grid-template-columns: auto;
+
+    position: sticky;
+    position: -webkit-sticky;
+
+}
+.calendar-select {
+    padding: 10px;
+}
+.calendar-days-container {
+    display: inline-flex;
+    float: left;
+    overflow-x: auto;
+    padding: 10px;
+    border-top: 1px solid black;
+}
+.calendar-item-day {
+    margin: 2px;
+    padding: 0px 10px;
+    border: 1px solid black;
+    background-color: #fffafa;
+    border-radius: 5px;
+    text-align: center;
+    font-size: 15px;
+    font-weight: bold;
+    height: 45px;
+    cursor: pointer;
+}
+.calendar-item-day-sel {
+    margin: 2px;
+    padding: 0px 10px;
+    border: 1px solid black;
+    background-color: #ffd61d;
+    border-radius: 5px;
+    text-align: center;
+    font-size: 15px;
+    font-weight: bold;
+    height: 45px;
+}    
+.calendar-item-day-total {
+    font-size: 12px;
+    font-weight: normal;
+    border-top: 1px solid red;
+    
+}
+.calendar-item-day-heading {
+    background-color: blue;
+    color: #FFFFFF;
+    padding: 10px;
+    border-radius: 5px;;
+}
+.play-area {
+    justify-self: center;
+    display: grid;
+    grid-template-columns: auto;
+
+}
+.play-area-videolist {
+    grid-column: 1/5;
+    
+    padding: 10px;
+    background-color: #EEEEEE;
+    overflow-x: auto;
+    display:grid;
+    grid-template-columns: repeat(10, auto);
+    
+
+}
+.play-area-videolist-tn {
+    
+    border: 1px solid rgb(238, 8, 8);
+    padding: 10px;
+    margin: 5px;
+    border-radius: 5px;
+    background-color: #e5ffe2;
+    display: grid;
+    grid-template-columns: auto;
+    cursor: pointer;
+    
+
+}
+.play-area-videolist-tn-comment {
+    font-size: 12px;
+    text-align: center;
+}
+.play-area-video {
+    width: 100%;
+    
+    grid-column: 1/5;
+    
+}
+.video {
+    width: 1280px;
+    height: 760px;
+    
+}
+.timeslot {
+    text-align: center;
+    background-color: #e1ffe4;
+    border: 1px solid black;
+    border-radius: 5px;
+    margin: 3px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 14px;
+    font-weight: bold;
+    padding: 5px;
+
+}
+.hour-container {
+    display: grid;
+    grid-template-columns: repeat(25,43px);
+    border-top: 1px solid black;
+    padding: 5px;
+    overflow-x: auto;
+    
+}
+.hour-item {
+    margin: 2px;
+    padding: 0px 10px;
+    border: 1px solid black;
+    background-color: #fffafa;
+    border-radius: 5px;
+    text-align: center;
+    font-size: 15px;
+    font-weight: bold;
+    height: 45px;
+    justify-self: center;
+    cursor: pointer;
+}
+.hour-item-sel{
+    margin: 2px;
+    padding: 0px 10px;
+    border: 1px solid black;
+    background-color: #e7b0fb;
+    border-radius: 5px;
+    text-align: center;
+    font-size: 15px;
+    font-weight: bold;
+    height: 45px;
+    justify-self: center;
+}
+.hour-item-total {
+    font-size: 12px;
+    font-weight: normal;
+    border-top: 1px solid #FF0000;
+}
+.hour-item-heading {
+    background-color: blue;
+    color: #FFFFFF;
+    padding: 10px;
+    border-radius: 5px;;
+}
+.play-area-videolist-tn-time {
+    font-size: 12px;
+    font-weight: bold;
+    justify-self: center;
+}
+.calendar-select {
+    display: grid;
+    grid-template-columns: repeat(3, 100px);
+}
+.calendar-month-item {
+    border: 2px solid #000000;
+    border-radius: 5px;
+    padding: 5px;
+    text-align: center;
+    background-color: #ffc642;
+    margin: 5px;
+    cursor: pointer;
+}
+.calendar-month-item-sel {
+    border: 2px solid #000000;
+    border-radius: 5px;
+    padding: 5px;
+    text-align: center;
+    background-color: #aa0000;
+    color: white;
+    margin: 5px;
+    cursor: pointer;
+}
+.menu-items {
+    display: flex;
+    float: left;
+}
+.menu-item-sel {
+    background-color: #aa0000;
+    color: #FFFFFF;
+    padding: 10px;
+    margin: 5px;
+    cursor: pointer;
+    border-radius: 5px;
+    
+}
+.menu-item {
+    background-color: #030303;
+    color: #FFFFFF;
+    padding: 10px;
+    margin: 5px;
+    cursor: pointer;
+    border-radius: 5px;
+}
+
+
+@media screen and (max-width: 1000px) {
+    .menu-container {
+        padding: 10px;
+        font-size: 14px;
+        display: grid;
+        grid-template-columns: auto;
+    
+
+}
+    
+}

@@ -1,0 +1,371 @@
+
+
+<html>
+<head>
+    <title>Recorded Videos</title>
+</head>
+<meta http-equiv="Cache-Control" content="no-store" />
+<script src="/surveillance/static/js/d3.v7.js"></script>
+
+
+<!--
+
+    Author: Steven Chiu
+    Purpose: Calendar function to Delete Videos by dater
+
+    This code is written from ground up using D3
+    This is a copy from recorded_videos.html
+
+-->
+<link rel="stylesheet" href="/surveillance/static/css/surveillance.css">
+<style>
+    .video-list-container {
+        padding: 5px;
+    }
+    .video-list-item-container {
+        padding: 5px;
+        margin: 3px;
+        display: grid;
+        grid-template-columns: 50px 200px auto;
+        background-color: #EEEEEE;
+        border-radius: 10px;
+    }
+    .video-list-item {
+        padding: 3px;
+        border: 2px solid #AAAAAA;
+        border-radius: 10px;
+        background-color: #FFFFFF;
+        margin: 5px;
+    }
+</style>
+<body>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="/surveillance/static/js/d3.v7.js"></script>
+
+    
+    <script>
+        function openClick(loc) {
+            window.location = loc;
+        }
+        function submitForm() {
+            if(confirm("Press OK to confirm DELETE.")) {
+                return true
+            } else {
+                return false;
+            }
+            
+        }
+
+
+    </script>
+    
+    <body>
+        <div class="title">Camera Surveillance System - Suk Ching Steven Chiu - 3070 Final Project</div>
+        <form action="admin_delete" onsubmit="return submitForm()" id="formdata" method="post">
+
+        <div id="main_layout" class="main-layout">
+            <div>Logged in as {{ data['username'] }}</div>
+            <P>{% for message in data['message'] %}
+                {{ message }}<br>
+            {%endfor%}
+            </P>
+        
+            <div id="menu-container" class="menu-container">
+                <div class="menu-items">
+                    <div class="menu-item-sel" onclick="openClick('/surveillance/')">Playback Videos</div>
+                    <div class="menu-item" onclick="openClick('/surveillance/live')">Live Stream!</div>
+                    <div class="menu-item" onclick="openClick('/surveillance/admin_login')">Admin</div>
+                    
+                </div>
+                
+            </div>
+            
+            <div id="calendar_container" class="calendar-container">
+                <div id="month-select" class="calendar-select">
+                    <div class="calendar-month-item">2023-Dec</div>
+                    <div class="calendar-month-item">2024-Jan</div>
+                    <div class="calendar-month-item">2024-Feb</div>
+                </div>
+                <div id="calendar_days" class="calendar-days-container"></div>
+                <div id="hour_container" class="hour-container">
+                </div>            
+            </div>
+
+            <div id="video_list_container" class="video-list-container"></div>
+            <div id="submit-button"><input type="submit" value="Delete Files"></div>    
+    
+    
+        </div>
+    
+    
+    </form>
+</div>
+
+
+<script>
+    // Main Video = http://192.168.1.23/surveillance/static/recorded_videos/raw_capture_20240219100235.mp4
+
+    var curr_time = new Date();
+    var param_year = curr_time.getFullYear();
+    var param_month = curr_time.getMonth();
+    var param_day = curr_time.getDate();
+    var param_hour = curr_time.getHours();
+    var param_minute = curr_time.getMinutes();
+    var month_days = [31,28,31,30,31,30,31,31,30,31,30,31]
+    var videos= {};
+    var videos_by_hour = {}
+    var videos_by_mins = {};
+    var month_name = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+
+    function setViewSize(evt) {
+        var viewHeight = window.innerHeight;
+        var viewWidth = window.innerWidth;
+        var viewWidth_str = (viewWidth - 30).toString() + "px";
+        
+        var mlayout = d3.select("#main_layout");
+        
+        var obj_video = d3.select("#video");
+        if(viewWidth > 2000) { viewWidth_str = "1980px"}
+        mlayout.style("width" ,  viewWidth_str)
+
+        if(viewWidth < 1400) { 
+            obj_video.style("width",(viewWidth-25))
+            obj_video.style("height",parseInt(360*(viewWidth-25)/640))
+
+        } else {
+            obj_video.style("width","1280")
+            obj_video.style("height","720")
+
+        }
+        
+    }
+
+    function buildCalendarMonth() {
+        
+        var month_container = d3.select("#month-select")
+        month_container.selectAll("*").remove();
+        var make_date = new Date();
+        var make_date_year = make_date.getFullYear()
+        var make_date_mon = make_date.getMonth()
+        var make_date_day = make_date.getDate()
+
+        var el1 = month_container.append("div").attr("onclick","refreshDate("+make_date.getFullYear().toString() + "," + make_date.getMonth() +")")
+        if(make_date_year == param_year && make_date_mon == param_month) {
+            el1.attr("class","calendar-month-item-sel").text(curr_time.getFullYear().toString() + "-" + month_name[curr_time.getMonth()])
+        } else {
+            el1.attr("class","calendar-month-item").text(curr_time.getFullYear().toString() + "-" + month_name[curr_time.getMonth()])
+        }
+        
+        
+
+        var prior_month = new Date(new Date(make_date.setMonth(make_date.getMonth() - 1)).setDate(make_date.getDate() - 1)); 
+        var make_date_year = prior_month.getFullYear()
+        var make_date_mon = prior_month.getMonth()
+        var make_date_day = prior_month.getDate()
+
+        
+        var el2 = month_container.append("div").attr("onclick","refreshDate("+prior_month.getFullYear().toString() + "," + prior_month.getMonth() +")")
+        if(make_date_year == param_year && make_date_mon == param_month) {
+            el2.attr("class","calendar-month-item-sel").text(prior_month.getFullYear().toString() + "-" + month_name[prior_month.getMonth()])
+        } else {
+            el2.attr("class","calendar-month-item").text(prior_month.getFullYear().toString() + "-" + month_name[prior_month.getMonth()])
+        }
+
+        var prior_month_2 = new Date(new Date(make_date.setMonth(make_date.getMonth() - 1)).setDate(make_date.getDate() - 1)); 
+        var make_date_year = prior_month_2.getFullYear()
+        var make_date_mon = prior_month_2.getMonth()
+        var make_date_day = prior_month_2.getDate()
+        var el3 = month_container.append("div").attr("onclick","refreshDate("+prior_month_2.getFullYear().toString() + "," + prior_month_2.getMonth() +")")
+        if(make_date_year == param_year && make_date_mon == param_month) {
+        
+            el3.attr("class","calendar-month-item-sel").text(prior_month_2.getFullYear().toString() + "-" + month_name[prior_month_2.getMonth()])
+        } else {
+            el3.attr("class","calendar-month-item").text(prior_month_2.getFullYear().toString() + "-" + month_name[prior_month_2.getMonth()])
+        }
+
+    }
+    
+
+
+    function buildCalendarDays(year, month) {
+        var cal_days_container = d3.select("#calendar_days")
+        cal_days_container.selectAll("*").remove()
+        cal_days_container.append("div").attr("class","calendar-item-day-heading").text("Day");
+        total_days = month_days[month];
+        if((year%4 == 0) && (month == 1)) {
+            total_days = 29
+        }
+
+        for(var i=1; i<=total_days; i++) {
+
+            var day_el = cal_days_container.append("div").attr("onclick","clickDay("+ i +")")
+            if(i == param_day) {
+                day_el.attr("class","calendar-item-day-sel");
+            } else {
+                day_el.attr("class","calendar-item-day");
+            }
+            
+            day_el.append("div").text(i.toString().padStart(2,'0'))
+            date_string = param_year.toString().padStart(2,'0') +'-' + (param_month+1).toString().padStart(2,'0') + "-" + i.toString().padStart(2,'0')
+            day_el.append("div").attr("class","calendar-item-day-total").text(videos[date_string])
+        }
+    }
+    function buildHour() {
+        hour_container = d3.select("#hour_container")
+        hour_container.selectAll("*").remove()
+        hour_container.append("div").attr("class","hour-item-heading").text("Hour")
+        for(var h=0; h<24; h++) {
+            var hr_el = hour_container.append("div").attr("onclick","clickHour("+ h +")");
+            if(h == param_hour) {
+                hr_el.attr("class","hour-item-sel");
+            } else {
+                hr_el.attr("class","hour-item");
+            }
+            
+            hour_string = h.toString().padStart(2,'0')
+            hr_el.append("div").text(hour_string)
+            hr_el.append("div").attr("class","hour-item-total").text(videos_by_hour[hour_string])
+
+        }
+
+    }
+    function buildMins() {
+        var video_list_container = d3.select("#video_list_container");
+        video_list_container.selectAll("*").remove()
+        total_videos = 0
+        Object.entries(videos_by_mins).forEach(([key, value]) => {
+            total_videos += value.length
+        }) ;
+        var video_count = 0;
+        Object.entries(videos_by_mins).forEach(([key, value]) => {
+            
+            value.forEach(tn_val => {
+                var vl_timeline = video_list_container.append("div").attr("class","video-list-item-container")
+                vl_timeline.attr("id", video_count);
+                vl_timeline.append("div").append("input").attr("type","checkbox").attr("name","video_file").attr("value",tn_val['filename'])
+                var tn_el = vl_timeline.append("div").attr('class','video-list-item')
+                var filename = tn_val['filename'].replace("raw_capture_","img_").replace(".mp4",".jpg")
+                tn_el.append("img").attr("src","/surveillance/static/recorded_images/" + filename).attr("width",160).attr("height",90)
+                var comment_el = vl_timeline.append("div").attr("class","video-list-item")
+                var comment_text = "<div><B>Title: </B>" + tn_val["title"] + "<BR>"
+                comment_text = comment_text + "<B>Time of recording: </B>" + tn_val["time"] + "<br>"
+                comment_text = comment_text + "<B>File Name: </B>" + tn_val["filename"] + "<br>"
+                comment_text = comment_text + "<B>Duration: </B>" + tn_val["duration"] + "<br>"
+                comment_text = comment_text + "<B>Bit Rate: </B>" + (parseInt(tn_val["bit_rate"])/1024).toFixed(2) + "kbps<br>"
+                comment_text = comment_text + "<B>File Size: </B>" + tn_val["file_size"] + "<br>"
+                comment_text = comment_text + "<B>File Format: </B>" + tn_val["file_format"] + "<br>"
+                comment_text = comment_text + "<B>Video Commentary: </B>" + tn_val["comment"] + "<br>"
+                comment_text = comment_text + "</div>"
+                comment_el.html(comment_text);
+
+                })
+        video_count++;
+
+            })
+
+        
+
+
+    }
+
+    function refreshCalendar() {
+        
+        url = "/surveillance/list_videos_by_day?year=" + param_year + "&month=" + (param_month+1) + "&day=" + param_day
+        d3.json(url).then(function(element) {
+            videos= element
+            //createHourlyList(param_year, param_month, day);
+            
+            buildCalendarDays(param_year, param_month);
+            
+        })
+
+    }
+    // Refresh Hour - provides list of videos for that day by the hour.
+    function refreshHour() {
+        hour_container = d3.select("#hour_container")
+        hour_container.selectAll("*").remove()
+        hour_container.append("div").text("Refreshing Video Counts...")
+        
+        url = "/surveillance/list_videos_by_day_hour?year=" + param_year + "&month=" + (param_month+1) + "&day=" + param_day
+        d3.json(url).then(function(element) {
+            videos_by_hour= element
+            //createHourlyList(param_year, param_month, day);
+            buildHour()
+
+            
+        })
+    }
+
+    function refreshMins() {
+        var video_list_container = d3.select("#play_area_videolist");
+        video_list_container.selectAll("*").remove()
+        video_list_container.style("grid-template-columns","repeat(1, auto)")
+            video_list_container.append("div").text("Retrieving Video Listing...")
+
+        url = "/surveillance/list_videos_by_hour_mins?year=" + param_year + "&month=" + (param_month+1) + "&day=" + param_day + "&hour=" + (param_hour)
+        d3.json(url).then(function(element) {
+            videos_by_mins= element
+            buildMins();
+    
+    })
+
+    }
+    function refreshDate(year, month) {
+        var curr_time = new Date();
+        var curr_year = curr_time.getFullYear();
+        var curr_month = curr_time.getMonth();
+        var curr_day = curr_time.getDate();
+        var curr_hour = curr_time.getHours();
+        if( curr_year == year && curr_month == month) {
+            param_day = curr_day;
+            param_hour = curr_hour;
+        } else {
+            param_day = 1;
+            param_hour = 0;
+
+        }
+        param_year = year;
+        param_month = month;
+        refreshAll();
+        }
+
+    function refreshAll() {
+        refreshCalendar();
+        refreshHour();
+        refreshMins();
+        buildCalendarMonth();
+
+    }
+    
+
+    function clickDay(pDay) {
+        param_day = pDay;
+        param_hour = 0
+        refreshCalendar();
+        refreshHour();
+        refreshMins();
+
+    }
+    function clickMonth(month) {
+
+    }
+    function clickHour(hour) {
+        param_hour = hour;
+        refreshHour();
+        refreshMins();
+
+    }
+    setViewSize();
+    window.addEventListener('resize', function(event) { setViewSize(event); }, true);
+
+
+
+    refreshAll()
+</script>
+
+
+</body>
+
+
+</script>
+</html>
